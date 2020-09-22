@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+test
+src/**.js
+.idea/*
+
+coverage
+.nyc_output
+*.log
+package-lock.json
+yarn.lock
+bat
+# dist
