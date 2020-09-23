@@ -27,8 +27,13 @@ const cp = program
   .option('--skip-same-file', '文件<名称与大小均相同>已存在时则跳过。', true)
   .option(
     '--muti-thread-min-count',
-    '启用多线程的最小文件数，文件总数低于该值则使用单线程模式(最小值 500，默认为 2000)',
+    '启用多线程的最小文件数，文件总数低于该值则使用单线程模式(最小值 1000，默认为 3000)',
     3000
+  )
+  .option(
+    '--cp-during-stats',
+    '多线程模式下，在收集文件信息过程中即开始文件复制（适用于文件数量多信息收集时间长的场景）',
+    false
   )
   .action((...args) => {
     const config = Object.assign(
@@ -40,8 +45,6 @@ const cp = program
       },
       cp.opts()
     );
-
-    config.minDateTime = new Date(config.minDateTime).getTime() || null;
 
     Object.keys(config).forEach((key) => {
       if (null == config[key]) delete config[key];

@@ -1,9 +1,9 @@
-import CONFIG from './config';
-import { help, logPrint } from './utils';
-import { log, color } from 'console-log-colors';
 import * as path from 'path';
 import * as fs from 'fs';
-import globToRegExp from 'glob-to-regexp';
+const globToRegExp = require('glob-to-regexp');
+const { log, color } = require('console-log-colors');
+import CONFIG from './config';
+import { help, logPrint } from './utils';
 
 /** 处理入参信息 */
 export function parseConfig(cfg: typeof CONFIG) {
@@ -27,7 +27,7 @@ export function parseConfig(cfg: typeof CONFIG) {
 
   if (!fs.existsSync(cfg.src)) return console.log(' 源目录不存在，请检查确认：', color.red(cfg.src));
 
-  if (cfg.desc.includes(cfg.src)) {
+  if (cfg.desc.includes(cfg.src + path.sep)) {
     log.red('\n源路径不能与目的路径相同或是目的路径的子目录！');
     return;
   }
@@ -42,7 +42,8 @@ export function parseConfig(cfg: typeof CONFIG) {
     CONFIG.exclude[i] = globToRegExp(val, { extended: true });
   });
 
-  CONFIG.mutiThreadMinCount = Math.max(Number(CONFIG.mutiThreadMinCount) || 0, 500);
+  CONFIG.mutiThreadMinCount = Math.max(Number(CONFIG.mutiThreadMinCount) || 0, 1000);
+  CONFIG.minDateTime = CONFIG.minDateTime ? new Date(CONFIG.minDateTime).getTime() || 0 : 0;
 
   // console.log(CONFIG);
   return CONFIG;

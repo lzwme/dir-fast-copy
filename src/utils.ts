@@ -57,7 +57,7 @@ export function fileCopy(
       // logPrint('cpFile:', srcPath, descPath);
       stats.totalFileNew++;
     } catch (err) {
-      console.log(`文件复制失败:`, err);
+      console.log(`文件复制失败:\nsrc: ${srcPath}\ndesc: ${descPath}\n`, err);
     }
   });
 
@@ -66,12 +66,12 @@ export function fileCopy(
 
 export function formatTime(timeMs) {
   // return timeMs / 1000 + 's';
-  return color.cyan(new Date(new Date('2010-01-01T00:00:00').getTime() + timeMs).toTimeString().split(' ')[0]);
+  return new Date(new Date('2010-01-01T00:00:00').getTime() + timeMs).toTimeString().split(' ')[0];
 }
 
 /** 显示从指定的时间到此刻花费的时间 */
 export function showCostTime(startTime: number) {
-  return formatTime(Date.now() - startTime);
+  return color.cyan(formatTime(Date.now() - startTime));
 }
 
 /**
@@ -103,7 +103,7 @@ export function cpFile(srcPath, descPath, srcStat?: fs.Stats) {
     fs.utimesSync(descPath, srcStat.atime, srcStat.mtime);
     //   totalFileNew++;
   } catch (err) {
-    console.log(`文件复制失败:`, 'src:', srcPath, 'desc:', descPath, err);
+    console.log(`文件复制失败:\nsrc: ${srcPath}\ndesc: ${descPath}\n`, err);
   }
 }
 
@@ -114,7 +114,7 @@ export function cpDir(srcDir, descDir, srcStat?: fs.Stats) {
     fs.mkdirSync(descDir, { recursive: true });
     fs.utimesSync(descDir, srcStat.atime, srcStat.mtime);
   } catch (err) {
-    console.log(`目录复制失败:`, 'src:', srcDir, 'desc:', descDir, err);
+    console.log(`文件复制失败:\nsrc: ${srcDir}\ndesc: ${descDir}\n`, err);
   }
 }
 
@@ -128,36 +128,34 @@ export function logInline(msg) {
 }
 
 /** 获取所有需处理的文件列表（后续分割为多线程处理） */
-export function getAllFiles(_srcDir, _descDir = '', startTime = Date.now()) {
+export function getAllFiles(_srcDir: string, _descDir = '', onProgress?: typeof CONFIG['onProgress']) {
   const stats: DfcStats = {
     totalFile: 0,
     totalDir: 0,
-    allDirPaths: {},
-    allFilePaths: {},
+    allDirPaths: [],
+    allFilePaths: [],
   };
 
   const handler = (srcDir, descDir = '') => {
     const filelist = fs.readdirSync(srcDir, { encoding: 'utf8' });
 
-    if (stats.totalFile && 0 === stats.totalDir % 500) {
-      logInline(
-        `[${formatTime(Date.now() - startTime)}] 已发现目录数：${stats.totalDir} 个，包含文件 ${stats.totalFile} 个`
-      );
+    if (onProgress && stats.totalFile && 0 === stats.totalFile % 500) {
+      onProgress(stats);
     }
 
     filelist.forEach((filename) => {
       if (!filename) return;
 
       const srcPath = path.resolve(srcDir, filename);
-      const descPath = descDir ? path.resolve(descDir, filename) : null;
+      const descPath = descDir ? path.resolve(descDir, filename) : '';
 
       if (fs.statSync(srcPath).isDirectory()) {
         stats.totalDir++;
-        stats.allDirPaths[srcPath] = descPath;
+        stats.allDirPaths.push([srcPath, descPath]);
         return handler(srcPath, descPath);
       } else {
         stats.totalFile++;
-        stats.allFilePaths[srcPath] = descPath;
+        stats.allFilePaths.push([srcPath, descPath]);
       }
     });
   };

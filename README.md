@@ -10,6 +10,7 @@
 [![GitHub issues][issues-img]][issues-url]
 [![GitHub forks][forks-img]][forks-url]
 [![GitHub stars][stars-img]][stars-url]
+[![minzipped size][bundlephobia-img]][bundlephobia-url]
 
 [stars-img]: https://img.shields.io/github/stars/lzwme/dir-fast-copy.svg
 [stars-url]: https://github.com/lzwme/dir-fast-copy/stargazers
@@ -23,6 +24,9 @@
 [node-url]: https://nodejs.org/download/
 [download-image]: https://img.shields.io/npm/dm/@lzwme/dir-fast-copy.svg?style=flat-square
 [download-url]: https://npmjs.org/package/@lzwme/dir-fast-copy
+[bundlephobia-url]: https://bundlephobia.com/result?p=@lzwme/dir-fast-copy@latest
+[bundlephobia-img]: https://badgen.net/bundlephobia/minzip/@lzwme/dir-fast-copy@latest
+
 
 nodejs 实现的文件夹快速复制工具。适用于对存在海量小文件的目录进行选择性复制的需求场景。
 

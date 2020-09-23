@@ -19,6 +19,6 @@ export async function dirRm(option) {
   const startTime = Date.now();
 
   fs.rmdirSync(option.src, { recursive: true });
-  logPrint(`$[${showCostTime(startTime)}] {srcTip}已删除：`, color.green(option.src));
+  logPrint(`$[${showCostTime(startTime)}] ${srcTip}已删除：`, color.green(option.src));
   return true;
 }
