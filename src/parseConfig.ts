@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { color, log } from 'console-log-colors';
 const globToRegExp = require('glob-to-regexp');
-const { log, color } = require('console-log-colors');
 import CONFIG from './config';
 import { help, logPrint } from './utils';
 
@@ -27,13 +27,17 @@ export function parseConfig(cfg: typeof CONFIG) {
 
   if (!fs.existsSync(cfg.src)) return console.log(' 源目录不存在，请检查确认：', color.red(cfg.src));
 
-  if (cfg.desc.includes(cfg.src + path.sep)) {
+  if (cfg.desc === cfg.src || cfg.desc.includes(cfg.src + path.sep)) {
     log.red('\n源路径不能与目的路径相同或是目的路径的子目录！');
     return;
   }
 
+  cfg.minDateTime = cfg.minDateTime ? new Date(cfg.minDateTime).getTime() || 0 : CONFIG.minDateTime;
+  cfg.mutiThreadMinCount = Number(cfg.mutiThreadMinCount) >= 1000 ? Number(cfg.mutiThreadMinCount) : CONFIG.mutiThreadMinCount;
+  cfg.progressInterval = Number(cfg.progressInterval) > 99 ? Number(cfg.progressInterval) : CONFIG.progressInterval;
+
   Object.assign(CONFIG, cfg);
-  logPrint('源路径  : ', color.green(CONFIG.src), '\n目的路径: ', color.green(CONFIG.desc), '\n');
+  logPrint('源路径  : ', color.cyan(CONFIG.src), '\n目的路径: ', color.cyan(CONFIG.desc), '\n');
 
   // 文件排除规则
   if (!CONFIG.exclude) CONFIG.exclude = [];
@@ -41,9 +45,6 @@ export function parseConfig(cfg: typeof CONFIG) {
     if (val instanceof RegExp) return;
     CONFIG.exclude[i] = globToRegExp(val, { extended: true });
   });
-
-  CONFIG.mutiThreadMinCount = Math.max(Number(CONFIG.mutiThreadMinCount) || 0, 1000);
-  CONFIG.minDateTime = CONFIG.minDateTime ? new Date(CONFIG.minDateTime).getTime() || 0 : 0;
 
   // console.log(CONFIG);
   return CONFIG;

@@ -31,7 +31,7 @@ export function fileCopy(
   };
 
   if (!filePathList) return;
-  const progressTipNum = filePathList.length > 1000 ? 100 : 10;
+  const progressTipNum = filePathList.length > 10000 ? 1000 : 100;
 
   filePathList.forEach((item, idx) => {
     const [srcPath, descPath] = item;
@@ -187,7 +187,7 @@ export function dirCopyRecursive(src: string, desc: string, onProgress: (stats) 
     filelist.forEach((filename) => {
       if (!filename || filename === '..') return;
 
-      if (stats.totalFileHandler && 0 === stats.totalFileHandler % 1000) onProgress(stats);
+      onProgress(stats);
       srcPath = path.resolve(srcDir, filename);
       descPath = path.resolve(descDir, filename);
 

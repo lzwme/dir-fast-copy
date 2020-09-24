@@ -2,7 +2,7 @@
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
  * @LastEditors: lzw
- * @LastEditTime: 2020-09-23 12:03:27
+ * @LastEditTime: 2020-09-24 10:31:47
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -34,9 +34,9 @@ function logProgress(showPercent = true) {
   if (CONFIG.slient) return;
   const percent = showPercent ? `[${((100 * STATS.totalFileHandler) / STATS.totalFile).toFixed(2)}%]` : '';
   logInline(
-    `[${showCostTime(startTime)}] ${percent} 已处理了${color.yellow(
-      STATS.totalFileHandler
-    )} 个文件，其中复制了 ${color.yellow(STATS.totalFileNew)} 个文件`
+    `[${showCostTime(startTime)}] ${percent} 已处理了${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.magenta(
+      STATS.totalFileNew
+    )} 个文件`
   );
 }
 /** 简单处理单文件的复制 */
@@ -64,9 +64,16 @@ function mutiThreadCopy(
   const sepCount = Math.ceil(allFilePathList.length / threadNum);
   /** 各子线程的统计信息，以 idx 为 key */
   const threadsStats = {};
+  /** 最近一次执行 onProgress 的时间 */
+  let preNotifyProgressTime = 0;
   const workerOnData = (worker: workerThreads.Worker, data) => {
     // logPrint(`子线程${idx}发来消息：`, data);
     threadsStats[data.idx] = data;
+
+    if (data.type === 'progress') {
+      if (Date.now() - preNotifyProgressTime < CONFIG.progressInterval) return;
+      preNotifyProgressTime = Date.now();
+    }
 
     stats.totalFileHandler = 0;
     stats.totalFileNew = 0;
@@ -78,9 +85,8 @@ function mutiThreadCopy(
       stats.totalDirNew += item.totalDirNew;
     });
 
-    if (stats.totalFileHandler && 0 === stats.totalFileHandler % 1000) {
-      if (opts.onProgress) process.nextTick(() => opts.onProgress(stats));
-    }
+    if (data.type === 'progress' && opts.onProgress) process.nextTick(() => opts.onProgress(stats));
+    // if (stats.totalFileHandler && 0 === stats.totalFileHandler % 1000) {}
 
     if (data.type === 'done') {
       threadRuningNum--;
@@ -133,7 +139,7 @@ function startMain(_config: typeof CONFIG) {
     logPrint(
       `\n\n处理完成，总耗时 ${color.green((Date.now() - startTime) / 1000)} 秒！共处理了 ${color.yellow(
         STATS.totalFile
-      )} 个文件，包含于 ${color.cyan(STATS.totalDir)} 个文件夹中。其中复制了 ${color.yellow(STATS.totalFileNew)} 个文件`
+      )} 个文件，包含于 ${color.cyan(STATS.totalDir)} 个文件夹中。其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件`
     );
     // 执行了 ${color.cyan(STATS.totalDirNew)} 次文件夹创建命令 // 由于多线程模式下用了递归创建参数，该值不准确
 
@@ -142,7 +148,11 @@ function startMain(_config: typeof CONFIG) {
 
   if (!CONFIG.mutiThread) {
     logPrint(color.cyan('单线程模式'));
+    /** 最近一次执行 onProgress 的时间 */
+    let preNotifyProgressTime = 0;
     const stats = dirCopyRecursive(cfg.src, cfg.desc, (s) => {
+      if (Date.now() - preNotifyProgressTime < CONFIG.progressInterval) return;
+      preNotifyProgressTime = Date.now();
       Object.assign(STATS, s);
       logProgress(false);
     });
@@ -185,43 +195,37 @@ function startMain(_config: typeof CONFIG) {
     Object.assign(STATS, stats);
     allFileListTodo = STATS.allFilePaths.slice(sendedToCpFileNum);
 
-    let tip = `[${showCostTime(startTime)}] 目录预处理完成，发现文件总数：${color.yellow(
-      STATS.totalFile
-    )}，目录总数：${color.yellow(STATS.totalDir)}。`;
-    if (isDone) {
-      tip += `已处理了${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.yellow(
-        STATS.totalFileNew
-      )} 个文件`;
+    let tip = `[${showCostTime(startTime)}] 目录预处理完成，发现文件总数：${color.yellow(STATS.totalFile)}，目录总数：${color.yellow(
+      STATS.totalDir
+    )}`;
+    if (CONFIG.cpDuringStats && isDone) {
+      tip += `。已处理了${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件`;
     }
     logInline(tip);
+
+    const onProgress = (s: DfcStats) => {
+      Object.assign(STATS, s);
+      logProgress();
+      if (cfg.onProgress) cfg.onProgress(STATS);
+    };
+    const onEndCallback = (s: DfcStats) => {
+      Object.assign(STATS, s);
+      onEnd();
+    };
 
     if (cpus < 2 || STATS.totalFile < CONFIG.mutiThreadMinCount) {
       logPrint(color.yellow('\n\n单线程执行'));
       fileCopy(STATS.allFilePaths, {
-        onProgress: (s: DfcStats) => {
-          Object.assign(STATS, s);
-          logProgress();
-          if (cfg.onProgress) cfg.onProgress(STATS);
-        },
-        onEnd: (s: DfcStats) => {
-          Object.assign(STATS, s);
-          onEnd();
-        },
+        onProgress,
+        onEnd: onEndCallback,
       });
     } else {
       mutiThreadCopy(allFileListTodo, {
         onStart: (threadNum) => {
           logPrint(color.cyan('\n\n开始多线程处理，线程数：'), color.green(threadNum));
         },
-        onProgress: (s: DfcStats) => {
-          Object.assign(STATS, s);
-          logProgress();
-          if (cfg.onProgress) cfg.onProgress(STATS);
-        },
-        onEnd: (s: DfcStats) => {
-          Object.assign(STATS, s);
-          onEnd();
-        },
+        onProgress,
+        onEnd: onEndCallback,
       });
     }
   }

@@ -2,7 +2,7 @@ import test from 'ava';
 import { parseConfig } from './parseConfig';
 
 test('parseConfig', (t) => {
-  const a = parseConfig({});
+  const a = parseConfig({ src: null, desc: null });
   t.is(a, void 0, '未指定源目录');
 
   const b = parseConfig({

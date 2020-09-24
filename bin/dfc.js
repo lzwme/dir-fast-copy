@@ -6,10 +6,7 @@ const commander = require('commander');
 const program = commander.program;
 const { fastCopy, dirRm } = require('../dist');
 
-program
-  .version(pkg.version, '-V, --version', '当前版本')
-  .helpOption('-h, --help', '查看帮助信息')
-  .description(pkg.description);
+program.version(pkg.version, '-V, --version', '当前版本').helpOption('-h, --help', '查看帮助信息').description(pkg.description);
 
 // program.command('help').description('显示帮助信息');
 
@@ -25,16 +22,9 @@ const cp = program
   .option('--min-date-time <1970-01-01T00:00:00>', '文件最小日期，低于该日期的文件会被忽略(处理速度更快)')
   .option('--no-skip-same-file', '文件<名称与大小均相同>已存在时不跳过(覆盖)。')
   .option('--skip-same-file', '文件<名称与大小均相同>已存在时则跳过。', true)
-  .option(
-    '--muti-thread-min-count',
-    '启用多线程的最小文件数，文件总数低于该值则使用单线程模式(最小值 1000，默认为 3000)',
-    3000
-  )
-  .option(
-    '--cp-during-stats',
-    '多线程模式下，在收集文件信息过程中即开始文件复制（适用于文件数量多信息收集时间长的场景）',
-    false
-  )
+  .option('--progress-interval', 'onProgress 进度回调(进度日志更新)的最小间隔时间(ms)，不低于 100ms。默认值 2000', 2000)
+  .option('--muti-thread-min-count', '启用多线程的最小文件数，文件总数低于该值则使用单线程模式(最小值 1000，默认为 3000)', 3000)
+  .option('--cp-during-stats', '多线程模式下，在收集文件信息过程中即开始文件复制（适用于文件数量多信息收集时间长的场景）', false)
   .action((...args) => {
     const config = Object.assign(
       {
@@ -50,7 +40,6 @@ const cp = program
       if (null == config[key]) delete config[key];
     });
 
-    // console.log(config);
     fastCopy(config);
   });
 
@@ -59,9 +48,9 @@ const rm = program
   .description('删除一个目录及其子目录')
   .option('-f, --force', '强制删除，无需确认(否则删除前需确认)', false)
   .option('-s, --slient', '静默模式', false)
-  .action((dirpath) => {
+  .action(() => {
     const opts = rm.opts();
-    opts.src = dirpath;
+    opts.src = rm.args;
     dirRm(opts);
     // require('fs').rmdirSync(dirpath, { recursive: true });
   });
