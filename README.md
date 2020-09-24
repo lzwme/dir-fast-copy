@@ -111,11 +111,17 @@ dfc rm -f ./lzwme-test3.txt
 
 ```js
 import { fastCopy } from '@lzwme/dir-fast-copy';
+
 const config = {
   src: './test-src',
   dest: './test-dest',
+  onProgress: stats => console.log('onProgress:', onProgress),
+  onEnd: stats => console.log('onEnd:', onProgress),
 };
-fastCopy(config);
+
+fastCopy(config).then(stats => {
+  if (stats) console.log('done:', stats);
+});
 ```
 
 ### Options
