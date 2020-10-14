@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-// const colors = require('console-log-colors');
 const pkg = require('../package.json');
 const commander = require('commander');
 const program = commander.program;
@@ -13,8 +12,6 @@ program.version(pkg.version, '-V, --version', '当前版本').helpOption('-h, --
 const cp = program
   .command('cp <srcPath> <descPath>')
   .description('高效的复制目录')
-  // .requiredOption('-S, --src <dir>', '要复制的源目录路径')
-  // .requiredOption('-D, --desc <dir>', '要复制至的目的目录路径')
   .option('-s, --slient', '静默模式', false)
   .option('--no-muti-thread', '不启用多线程模式')
   .option('--muti-thread', '启用多线程模式(文件总数大于 --muti-thread-min-count 的值才有效)', true)
@@ -31,7 +28,7 @@ const cp = program
         src: args[0],
         desc: args[1],
         iscmd: true,
-        // onEnd: () =>  process.exit(0),
+        onEnd: () => process.exit(0),
       },
       cp.opts()
     );
@@ -52,7 +49,6 @@ const rm = program
     const opts = rm.opts();
     opts.src = rm.args;
     dirRm(opts);
-    // require('fs').rmdirSync(dirpath, { recursive: true });
   });
 
 program.parse(process.argv);
