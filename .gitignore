@@ -11,4 +11,4 @@ coverage
 package-lock.json
 yarn.lock
 bat
-# dist
+pnpm-lock.yaml

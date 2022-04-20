@@ -19,14 +19,13 @@ export function logPrint(...args) {
 }
 
 /** 执行文件复制（获取到全部文件后） */
-export function fileCopy(
-  filePathList: string[][],
-  opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {}
-) {
+export function fileCopy(filePathList: string[][], opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {}) {
   const stats: DfcStats = {
     totalFile: filePathList.length,
+    totalFileSize: 0,
     totalFileHandler: 0,
     totalFileNew: 0,
+    totalFileNewSize: 0,
     totalDirNew: 0,
   };
 
@@ -35,13 +34,17 @@ export function fileCopy(
 
   filePathList.forEach((item, idx) => {
     const [srcPath, descPath] = item;
-    const check = checkFile(srcPath, descPath, fs.statSync(srcPath));
+    const srcStat = fs.statSync(srcPath);
+    const check = checkFile(srcPath, descPath, srcStat);
 
     stats.totalFileHandler = idx + 1;
 
     if (idx && 0 === stats.totalFileHandler % progressTipNum) {
       if (opts.onProgress) opts.onProgress(stats);
     }
+
+    if (check === 'dir') return;
+    stats.totalFileSize += srcStat.size;
 
     if (check === false) return;
 
@@ -56,6 +59,7 @@ export function fileCopy(
       cpFile(srcPath, descPath);
       // logPrint('cpFile:', srcPath, descPath);
       stats.totalFileNew++;
+      stats.totalFileNewSize += srcStat.size;
     } catch (err) {
       console.log(`文件复制失败:\nsrc: ${srcPath}\ndesc: ${descPath}\n`, err);
     }
@@ -140,7 +144,7 @@ export function getAllFiles(_srcDir: string, _descDir = '', onProgress?: typeof 
     const filelist = fs.readdirSync(srcDir, { encoding: 'utf8' });
 
     if (onProgress && stats.totalFile && 0 === stats.totalFile % 500) {
-      onProgress(stats);
+      onProgress(Object.assign({}, stats));
     }
 
     filelist.forEach((filename) => {
@@ -168,8 +172,10 @@ export function getAllFiles(_srcDir: string, _descDir = '', onProgress?: typeof 
 export function dirCopyRecursive(src: string, desc: string, onProgress: (stats) => void) {
   const stats: DfcStats = {
     totalFile: 0, // 文件总数
+    totalFileSize: 0,
     totalFileHandler: 0, // 已处理的文件数
     totalFileNew: 0, // 复制了多少个文件
+    totalFileNewSize: 0,
     totalDirNew: 0, // 创建了多少个目录
     totalDir: 0,
   };
@@ -197,6 +203,7 @@ export function dirCopyRecursive(src: string, desc: string, onProgress: (stats) 
       if (srcStat.isFile()) {
         stats.totalFileHandler++;
         stats.totalFile = stats.totalFileHandler;
+        stats.totalFileSize += srcStat.size;
       } else {
         stats.totalDir++;
       }
@@ -215,6 +222,7 @@ export function dirCopyRecursive(src: string, desc: string, onProgress: (stats) 
 
       cpFile(srcPath, descPath, srcStat);
       stats.totalFileNew++;
+      stats.totalFileNewSize += srcStat.size;
     });
   };
 
@@ -238,4 +246,11 @@ export function readSyncByRl(tips: string) {
       rl.close();
     });
   });
+}
+
+export function formatFileSize(size: number) {
+  if (size > 1 << 30) return (size / (1 << 30)).toFixed(2) + 'G';
+  if (size > 1 << 20) return (size / (1 << 20)).toFixed(2) + 'M';
+  if (size > 1 << 10) return (size / (1 << 10)).toFixed(2) + 'KB';
+  return size + 'B';
 }

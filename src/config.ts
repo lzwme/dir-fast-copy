@@ -1,3 +1,4 @@
+import { cpus } from 'os';
 import { DfcConfig } from '../types';
 
 const config: DfcConfig = {
@@ -5,8 +6,8 @@ const config: DfcConfig = {
   iscmd: false,
   src: '',
   desc: '',
-  mutiThread: true,
-  mutiThreadMinCount: 3000,
+  threads: Math.max(cpus().length - 1, 1),
+  mutiThreadMinFiles: 3000,
   exclude: [], // [/\.pyc$/],
   minDateTime: 0, // new Date('1970-01-01T00:00:00').getTime(),
   skipSameFile: true,

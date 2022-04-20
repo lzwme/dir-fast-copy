@@ -17,6 +17,7 @@ coverage
 *.log
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 commitlint.config.js
 .editorconfig
 publish.bat
@@ -25,3 +26,6 @@ bat
 .prettierignore
 .gitignore
 scripts
+docs
+.husky
+CHANGELOG.md

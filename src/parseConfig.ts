@@ -33,7 +33,7 @@ export function parseConfig(cfg: typeof CONFIG) {
   }
 
   cfg.minDateTime = cfg.minDateTime ? new Date(cfg.minDateTime).getTime() || 0 : CONFIG.minDateTime;
-  cfg.mutiThreadMinCount = Number(cfg.mutiThreadMinCount) >= 1000 ? Number(cfg.mutiThreadMinCount) : CONFIG.mutiThreadMinCount;
+  cfg.mutiThreadMinFiles = Number(cfg.mutiThreadMinFiles) >= 1000 ? Number(cfg.mutiThreadMinFiles) : CONFIG.mutiThreadMinFiles;
   cfg.progressInterval = Number(cfg.progressInterval) > 99 ? Number(cfg.progressInterval) : CONFIG.progressInterval;
 
   Object.assign(CONFIG, cfg);
