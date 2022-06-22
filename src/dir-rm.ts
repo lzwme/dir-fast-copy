@@ -6,7 +6,6 @@ import { showCostTime, logPrint, readSyncByRl } from './utils';
 import { DfcDirRmOptions } from '../types';
 
 async function doDirRm(src: string, option: DfcDirRmOptions) {
-  // console.log(option);
   if (!src) return console.log('请指定要删除的文件或目录路径');
   src = path.resolve(src);
   if (!fs.existsSync(src)) return console.log('要删除的文件或目录路径不存在！', color.red(src));
@@ -19,7 +18,9 @@ async function doDirRm(src: string, option: DfcDirRmOptions) {
   }
   const startTime = Date.now();
 
-  fs.rmdirSync(src, { recursive: true });
+  if (typeof fs.rmSync === 'function') fs.rmSync(src, { recursive: true });
+  else fs.rmdirSync(src, { recursive: true });
+
   logPrint(`$[${showCostTime(startTime)}] ${srcTip}已删除：`, color.green(src));
   return true;
 }

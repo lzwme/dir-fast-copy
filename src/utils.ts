@@ -9,7 +9,7 @@ const pkg = require('../package.json');
 
 export function help() {
   log.green(pkg.description);
-  console.log(`\r\n ${color.yellow('USEAGE:')}  dfc cf =<要复制的源目录> =<要复制至的目的目录>`);
+  console.log(`\r\n ${color.yellow('USEAGE:')}  dfc cf <src> <dest>`);
 }
 
 /** 日志打印 */

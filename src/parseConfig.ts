@@ -46,6 +46,5 @@ export function parseConfig(cfg: typeof CONFIG) {
     CONFIG.exclude[i] = globToRegExp(val, { extended: true });
   });
 
-  // console.log(CONFIG);
   return CONFIG;
 }
