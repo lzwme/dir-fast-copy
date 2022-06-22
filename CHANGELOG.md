@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 1.4.0 (2022-06-22)
+
+
+### Features
+
+* 新增 cpDuringStats 参数，用于指定多线程模式下在收集文件信息过程中是否进行文件复制(默认所有文件信息收集完毕才开始) ([8c5d9cc](https://github.com/lzwme/dir-fast-copy/commit/8c5d9cc4ea0c592222f9a1c2d072e7151d3c3a88))
+* 增加显示复制文件的大小信息；更新依赖 ([90e342e](https://github.com/lzwme/dir-fast-copy/commit/90e342ea34483da044846e776361199145e4ca50))
+
+
+### Bug Fixes
+
+* 修正单词简写错误 desc -> dest (close [#1](https://github.com/lzwme/dir-fast-copy/issues/1)) ([715c8b8](https://github.com/lzwme/dir-fast-copy/commit/715c8b8d7b69fef10196da55419e7f8628b38780))
+* console-log-colors 依赖应放到 dependencies 中 ([5788e00](https://github.com/lzwme/dir-fast-copy/commit/5788e0046399b58af1f3778227faf0ab7d65ce97))
+
 ## 1.3.0 (2022-04-20)
 
 

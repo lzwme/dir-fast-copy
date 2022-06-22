@@ -1,6 +1,6 @@
 {
   "name": "@lzwme/dir-fast-copy",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "nodejs 实现的文件夹快速复制工具。适用于对存在海量小文件的目录进行选择性复制的需求场景。",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -44,7 +44,7 @@
     "cov:summary": "nyc report --reporter=text-summary",
     "cov:check": "nyc report && nyc check-coverage --lines 40 --functions 30 --branches 30",
     "version": "standard-version",
-    "reset": "git clean -dfx && git reset --hard && yarn install",
+    "reset": "git clean -dfx && git reset --hard && pnpm install",
     "clean": "trash dist test",
     "prepare-release": "run-s test cov:check version"
   },
@@ -55,6 +55,7 @@
     "access": "public",
     "registry": "https://registry.npmjs.com"
   },
+  "packageManager": "pnpm@7.1.0",
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/node": "^16",
