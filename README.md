@@ -57,7 +57,7 @@ dfc --help
 Usage: dfc [options] [command]
 
 Commands:
-  cp [options] <srcPath> <descPath>  高效的复制目录
+  cp [options] <srcPath> <destPath>  高效的复制目录
   rm [options] <dirpath>             删除一个目录及其子目录
 ```
 
@@ -66,7 +66,7 @@ Commands:
 ```bash
 dfc cp --help
 
-Usage: dfc cp [options] <srcPath> <descPath>
+Usage: dfc cp [options] <srcPath> <destPath>
 
 高效的复制目录
 
@@ -86,22 +86,22 @@ Options:
 
 示例：
 ```bash
-dfc cp ./src ./desc
+dfc cp ./src ./dest
 
 # 使用 8 子线程复制
-dfc cp ./src ./desc --threads 8
+dfc cp ./src ./dest --threads 8
 
 # 多线程复制，在收集目录信息时即进行部分复制
-dfc cp ./src ./desc --cp-during-stats
+dfc cp ./src ./dest --cp-during-stats
 
-# 复制 src 目录至 desc，排除 node_modules 和 dist 目录，排除 .pyc 和 .obj 类型的文件
-dfc cp ./src ./desc --exclude /node_modules/** dist/** *.{pyc, .obj}
+# 复制 src 目录至 dest，排除 node_modules 和 dist 目录，排除 .pyc 和 .obj 类型的文件
+dfc cp ./src ./dest --exclude /node_modules/** dist/** *.{pyc, .obj}
 
 # 只复制 2020-09-22 00:00:00 之后改动或创建的文件
-dfc cp ./src ./desc --min-date-time 2020-09-22
+dfc cp ./src ./dest --min-date-time 2020-09-22
 
 # 强制复制所有文件
-dfc cp ./src ./desc --no-skip-same-file
+dfc cp ./src ./dest --no-skip-same-file
 ```
 
 **目录删除：**
@@ -152,12 +152,12 @@ fastCopy(config).then(stats => {
 const config = {
   /** 是否静默模式 */
   slient: false,
-  /** 是否为 cmd 命令方式调用(dfc --src --desc) */
+  /** 是否为 cmd 命令方式调用(dfc --src --dest) */
   iscmd: false,
   /** 源目录路径 */
   src: '',
   /** 输出目录路径 */
-  desc: '',
+  dest: '',
   /** 是否尝试启用多线程模式 */
   enableThreads: true,
   /** 启用线程的最小文件数，文件总数低于该值则不启用多线程模式 */

@@ -3,10 +3,10 @@ export interface DfcConfig {
   /** 源目录路径 */
   src: string;
   /** 输出目录路径 */
-  desc: string;
+  dest: string;
   /** 是否静默模式 */
   slient?: boolean;
-  /** 是否为 cmd 命令方式调用(dfc --src --desc) */
+  /** 是否为 cmd 命令方式调用(dfc --src --dest) */
   iscmd?: boolean;
   /** 多线程模式的线程数。小于2表示不启动多线程模式 */
   threads?: number;
@@ -29,9 +29,9 @@ export interface DfcConfig {
 }
 
 export interface DfcStats {
-  /** 全部的文件路径 [src, desc] */
+  /** 全部的文件路径 [src, dest] */
   allFilePaths?: string[][];
-  /** 全部的目录路径 src?: desc */
+  /** 全部的目录路径 src?: dest */
   allDirPaths?: string[][];
   /** 文件总数 */
   totalFile?: number;

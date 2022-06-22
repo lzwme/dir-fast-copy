@@ -9,10 +9,8 @@ const program = commander.program;
 
 program.version(pkg.version, '-V, --version', '当前版本').helpOption('-h, --help', '查看帮助信息').description(pkg.description);
 
-// program.command('help').description('显示帮助信息');
-
 const cp = program
-  .command('cp <srcPath> <descPath>')
+  .command('cp <srcPath> <destPath>')
   .description('高效的复制目录')
   .option('--debug', '调试模式', false)
   .option('-s, --slient', '静默模式', false)
@@ -28,7 +26,7 @@ const cp = program
     const config = Object.assign(
       {
         src: args[0],
-        desc: args[1],
+        dest: args[1],
         iscmd: true,
         onEnd: () => process.exit(0),
       },

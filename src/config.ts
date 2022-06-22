@@ -5,7 +5,7 @@ const config: DfcConfig = {
   slient: false,
   iscmd: false,
   src: '',
-  desc: '',
+  dest: '',
   threads: Math.max(cpus().length - 1, 1),
   mutiThreadMinFiles: 3000,
   exclude: [], // [/\.pyc$/],

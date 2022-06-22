@@ -2,7 +2,7 @@
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
  * @LastEditors: lzw
- * @LastEditTime: 2020-09-24 13:43:11
+ * @LastEditTime: 2022-06-22 13:54:59
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -16,13 +16,13 @@ import { DfcConfig, DfcStats } from '../types';
 import { parseConfig } from './parseConfig';
 
 /** 简单处理单文件的复制 */
-function cpSingleFile(srcFilePath, descFilePath) {
+function cpSingleFile(srcFilePath, destFilePath) {
   const startTime = Date.now();
   logPrint('单文件复制');
-  if (fs.existsSync(descFilePath) && fs.statSync(descFilePath).isFile()) {
+  if (fs.existsSync(destFilePath) && fs.statSync(destFilePath).isFile()) {
     logPrint('目的文件已存在，将被源文件替换');
   }
-  cpFile(srcFilePath, descFilePath);
+  cpFile(srcFilePath, destFilePath);
   logPrint(`复制完成，耗时 ${color.green((Date.now() - startTime) / 1000)} 秒`);
   return true;
 }
@@ -131,13 +131,13 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
 
     // 单文件复制
     if (fs.statSync(cfg.src).isFile()) {
-      cpSingleFile(cfg.src, cfg.desc);
+      cpSingleFile(cfg.src, cfg.dest);
       STATS.totalFileNew = STATS.totalFile = 1;
       return resolve(STATS);
     }
 
-    if (!fs.existsSync(cfg.desc)) {
-      cpDir(cfg.src, cfg.desc);
+    if (!fs.existsSync(cfg.dest)) {
+      cpDir(cfg.src, cfg.dest);
       STATS.totalDirNew++;
     }
 
@@ -160,7 +160,7 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
       logPrint(color.cyan('单线程模式'));
       /** 最近一次执行 onProgress 的时间 */
       let preNotifyProgressTime = 0;
-      const stats = dirCopyRecursive(cfg.src, cfg.desc, (s) => {
+      const stats = dirCopyRecursive(cfg.src, cfg.dest, (s) => {
         if (Date.now() - preNotifyProgressTime < CONFIG.progressInterval) return;
         preNotifyProgressTime = Date.now();
         Object.assign(STATS, s);
@@ -176,7 +176,7 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
       let sendedToCpFileNum = 0;
       /** 子线程是否已处理完毕 */
       let isDone = true;
-      const stats = getAllFiles(cfg.src, cfg.desc, (s) => {
+      const stats = getAllFiles(cfg.src, cfg.dest, (s) => {
         logInline(`[${showCostTime(startTime)}] 已发现目录数：${s.totalDir} 个，包含文件 ${s.totalFile} 个`);
 
         // TODO: 可以在获取到文件后立即执行多线程复制
