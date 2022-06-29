@@ -28,11 +28,20 @@ export interface DfcConfig {
   onProgress?: (stats: DfcStats) => void;
 }
 
+export interface FsStatInfo {
+  isFile?: boolean;
+  nlink?: number;
+  isDirectory: boolean;
+  atimeMs: number;
+  mtimeMs: number;
+  size: number;
+};
+
 export interface DfcStats {
   /** 全部的文件路径 [src, dest] */
-  allFilePaths?: string[][];
+  allFilePaths?: { src: string; dest: string; srcStat: FsStatInfo }[];
   /** 全部的目录路径 src?: dest */
-  allDirPaths?: string[][];
+  allDirPaths?: { src: string; dest: string; srcStat: FsStatInfo }[];
   /** 文件总数 */
   totalFile?: number;
   /** 所有文件的大小之和 */

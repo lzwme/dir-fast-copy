@@ -29,3 +29,5 @@ scripts
 docs
 .husky
 CHANGELOG.md
+benchmark
+tmp

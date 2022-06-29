@@ -2,7 +2,7 @@
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
  * @LastEditors: lzw
- * @LastEditTime: 2022-06-22 13:54:59
+ * @LastEditTime: 2022-06-29 13:29:29
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -11,18 +11,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { color, log } from 'console-log-colors';
 import CONFIG from './config';
-import { cpFile, cpDir, fileCopy, showCostTime, dirCopyRecursive, logInline, logPrint, getAllFiles, formatFileSize } from './utils';
+import { cpFile, cpDir, fileCopy, showCostTime, dirCopyRecursive, logInline, logPrint, getAllFiles, formatFileSize, toFSStatInfo } from './utils';
 import { DfcConfig, DfcStats } from '../types';
 import { parseConfig } from './parseConfig';
 
 /** 简单处理单文件的复制 */
 function cpSingleFile(srcFilePath, destFilePath) {
   const startTime = Date.now();
+  const srcStat = fs.statSync(destFilePath);
   logPrint('单文件复制');
-  if (fs.existsSync(destFilePath) && fs.statSync(destFilePath).isFile()) {
+  if (fs.existsSync(destFilePath) && srcStat.isFile()) {
     logPrint('目的文件已存在，将被源文件替换');
   }
-  cpFile(srcFilePath, destFilePath);
+  cpFile(srcFilePath, destFilePath, toFSStatInfo(srcStat));
   logPrint(`复制完成，耗时 ${color.green((Date.now() - startTime) / 1000)} 秒`);
   return true;
 }
@@ -125,7 +126,7 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
     );
   };
 
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const cfg = parseConfig(_config);
     if (!cfg) return resolve(false);
 
@@ -176,7 +177,7 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
       let sendedToCpFileNum = 0;
       /** 子线程是否已处理完毕 */
       let isDone = true;
-      const stats = getAllFiles(cfg.src, cfg.dest, (s) => {
+      const stats = await getAllFiles(cfg.src, cfg.dest, (s) => {
         logInline(`[${showCostTime(startTime)}] 已发现目录数：${s.totalDir} 个，包含文件 ${s.totalFile} 个`);
 
         // TODO: 可以在获取到文件后立即执行多线程复制
