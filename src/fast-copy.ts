@@ -2,7 +2,7 @@
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
  * @LastEditors: lzw
- * @LastEditTime: 2022-06-29 13:29:29
+ * @LastEditTime: 2022-06-29 18:32:54
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { color, log } from 'console-log-colors';
 import CONFIG from './config';
-import { cpFile, cpDir, fileCopy, showCostTime, dirCopyRecursive, logInline, logPrint, getAllFiles, formatFileSize, toFSStatInfo } from './utils';
+import { cpFileSync, cpDir, fileCopy, showCostTime, dirCopyRecursive, logInline, logPrint, getAllFiles, formatFileSize, toFSStatInfo } from './utils';
 import { DfcConfig, DfcStats } from '../types';
 import { parseConfig } from './parseConfig';
 
@@ -23,7 +23,7 @@ function cpSingleFile(srcFilePath, destFilePath) {
   if (fs.existsSync(destFilePath) && srcStat.isFile()) {
     logPrint('目的文件已存在，将被源文件替换');
   }
-  cpFile(srcFilePath, destFilePath, toFSStatInfo(srcStat));
+  cpFileSync(srcFilePath, destFilePath, toFSStatInfo(srcStat));
   logPrint(`复制完成，耗时 ${color.green((Date.now() - startTime) / 1000)} 秒`);
   return true;
 }

@@ -19,7 +19,7 @@ export function logPrint(...args) {
 }
 
 /** 执行文件复制（获取到全部文件后） */
-export function fileCopy(
+export async function fileCopy(
   filePathList: DfcStats['allFilePaths'],
   opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {}
 ) {
@@ -32,23 +32,24 @@ export function fileCopy(
     totalDirNew: 0,
   };
 
-  if (!filePathList) return;
+  if (!filePathList) return stats;
   const progressTipNum = filePathList.length > 10000 ? 1000 : 100;
+  const queueSize = 5;
+  let cpFileQueue: Promise<void>[] = [];
 
-  filePathList.forEach((item, idx) => {
+  for (const item of filePathList) {
     const { src: srcPath, dest: destPath, srcStat } = item;
     const check = checkFile(srcPath, destPath, srcStat);
 
-    stats.totalFileHandler = idx + 1;
+    stats.totalFileHandler++;
 
-    if (idx && 0 === stats.totalFileHandler % progressTipNum) {
+    if (stats.totalFileHandler > 1 && 0 === stats.totalFileHandler % progressTipNum) {
       if (opts.onProgress) opts.onProgress(stats);
     }
 
-    if (check === 'dir') return;
+    if (check === 'dir') continue;
     stats.totalFileSize += srcStat.size;
-
-    if (check === false) return;
+    if (check === false) continue;
 
     try {
       // 创建目的文件的目录路径
@@ -58,16 +59,23 @@ export function fileCopy(
         stats.totalDirNew++;
       }
 
-      cpFile(srcPath, destPath, srcStat);
-      // logPrint('cpFile:', srcPath, destPath);
+      if (cpFileQueue.length >= queueSize) {
+        await Promise.allSettled(cpFileQueue);
+        cpFileQueue = [];
+      }
+
+      cpFileQueue.push(cpFile(srcPath, destPath, srcStat));
       stats.totalFileNew++;
       stats.totalFileNewSize += srcStat.size;
     } catch (err) {
       console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
     }
-  });
+  }
+
+  await Promise.allSettled(cpFileQueue);
 
   if (opts.onEnd) opts.onEnd(stats);
+  return stats;
 }
 
 export function formatTime(timeMs) {
@@ -101,14 +109,28 @@ export function checkFile(_srcFilePath, destFilePath, srcStat: FsStatInfo, confi
   return srcStat;
 }
 
-/** 复制一个文件(不作任何检查以保证速度) */
-export function cpFile(srcPath, destPath, srcStat: FsStatInfo) {
+
+/** 复制一个文件 */
+export async function cpFileSync(srcPath, destPath, srcStat: FsStatInfo) {
   try {
-    // fs.writeFileSync(destPath, fs.readFileSync(srcPath));
-    fs.createReadStream(srcPath).pipe(fs.createWriteStream(destPath)).on('close', () => {
-      fs.utimesSync(destPath, srcStat.atimeMs, srcStat.mtimeMs);
+    fs.writeFileSync(destPath, fs.readFileSync(srcPath));
+    fs.utimesSync(destPath, srcStat.atimeMs, srcStat.mtimeMs);
+  } catch (err) {
+    console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
+  }
+}
+
+/** 复制一个文件(异步) */
+export async function cpFile(srcPath, destPath, srcStat: FsStatInfo) {
+  try {
+    await new Promise((rs, reject) => {
+      fs.createReadStream(srcPath).pipe(fs.createWriteStream(destPath)).on('close', () => {
+        fs.utimes(destPath, srcStat.atimeMs, srcStat.mtimeMs, (err) => {
+          if (err) reject(err);
+          else rs(true)
+        });
+      });
     });
-    //   totalFileNew++;
   } catch (err) {
     console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
   }
@@ -247,7 +269,7 @@ export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats)
         return;
       }
 
-      cpFile(srcPath, destPath, statInfo);
+      cpFileSync(srcPath, destPath, statInfo);
       stats.totalFileNew++;
       stats.totalFileNewSize += srcStat.size;
     });
