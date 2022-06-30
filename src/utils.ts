@@ -55,7 +55,7 @@ export async function fileCopy(
       // 创建目的文件的目录路径
       const destFileDir = path.dirname(destPath);
       if (!fs.existsSync(destFileDir)) {
-        cpDir(path.dirname(srcPath), destFileDir);
+        cpDir(path.dirname(srcPath), destFileDir, srcStat);
         stats.totalDirNew++;
       }
 
@@ -137,13 +137,13 @@ export async function cpFile(srcPath, destPath, srcStat: FsStatInfo) {
 }
 
 /** 复制一个目录(不作任何检查以保证速度) */
-export function cpDir(srcDir, destDir, srcStat?: fs.Stats) {
+export function cpDir(srcDir, destDir, srcStat?: FsStatInfo) {
   try {
-    if (!srcStat) srcStat = fs.statSync(srcDir);
+    if (!srcStat) srcStat = toFSStatInfo(fs.statSync(srcDir));
     fs.mkdirSync(destDir, { recursive: true });
     fs.utimesSync(destDir, srcStat.atime, srcStat.mtime);
   } catch (err) {
-    console.log(`文件复制失败:\nsrc: ${srcDir}\ndest: ${destDir}\n`, err);
+    console.log(`目录复制失败:\nsrc: ${srcDir}\ndest: ${destDir}\n`, err);
   }
 }
 
@@ -231,9 +231,9 @@ export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats)
     totalDir: 0,
   };
 
-  const handler = (srcDir: string, destDir: string, srcStat?: fs.Stats) => {
+  const handler = (srcDir: string, destDir: string, srcDirStat?: FsStatInfo) => {
     if (!fs.existsSync(destDir)) {
-      cpDir(srcDir, destDir, srcStat);
+      cpDir(srcDir, destDir, srcDirStat);
       stats.totalDirNew++;
     }
 
@@ -263,7 +263,7 @@ export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats)
       if (!check) return;
 
       if (check === 'dir') {
-        handler(srcPath, destPath, srcStat);
+        handler(srcPath, destPath, statInfo);
         // 移除空的文件夹
         if (!fs.readdirSync(destPath).length) {
           fs.rmdirSync(destPath);
