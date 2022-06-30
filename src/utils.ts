@@ -80,7 +80,7 @@ export async function fileCopy(
 
 export function formatTime(timeMs) {
   // return timeMs / 1000 + 's';
-  return new Date(new Date('2010-01-01T00:00:00').getTime() + timeMs).toTimeString().split(' ')[0];
+  return new Date(new Date('1970-01-01T00:00:00').getTime() + timeMs).toTimeString().split(' ')[0];
 }
 
 /** 显示从指定的时间到此刻花费的时间 */
@@ -99,7 +99,7 @@ export function checkFile(_srcFilePath, destFilePath, srcStat: FsStatInfo, confi
 
   if (srcStat.isDirectory) return 'dir';
 
-  if (srcStat.mtimeMs < config.minDateTime) return false;
+  if (srcStat.mtime.getTime() < config.minDateTime) return false;
 
   // 相同大小的文件已存在
   if (config.skipSameFile) {
@@ -114,7 +114,7 @@ export function checkFile(_srcFilePath, destFilePath, srcStat: FsStatInfo, confi
 export async function cpFileSync(srcPath, destPath, srcStat: FsStatInfo) {
   try {
     fs.writeFileSync(destPath, fs.readFileSync(srcPath));
-    fs.utimesSync(destPath, srcStat.atimeMs, srcStat.mtimeMs);
+    fs.utimesSync(destPath, srcStat.atime, srcStat.mtime);
   } catch (err) {
     console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
   }
@@ -125,7 +125,7 @@ export async function cpFile(srcPath, destPath, srcStat: FsStatInfo) {
   try {
     await new Promise((rs, reject) => {
       fs.createReadStream(srcPath).pipe(fs.createWriteStream(destPath)).on('close', () => {
-        fs.utimes(destPath, srcStat.atimeMs, srcStat.mtimeMs, (err) => {
+        fs.utimes(destPath, srcStat.atime, srcStat.mtime, (err) => {
           if (err) reject(err);
           else rs(true)
         });
@@ -152,8 +152,8 @@ export function toFSStatInfo(fstat: fs.Stats) {
     isFile: fstat.isFile(),
     isDirectory: fstat.isDirectory(),
     nlink: fstat.nlink,
-    atimeMs: fstat.atimeMs,
-    mtimeMs: fstat.mtimeMs,
+    atime: fstat.atime,
+    mtime: fstat.mtime,
     size: fstat.size,
   };
   return info;
@@ -176,11 +176,14 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
     allDirPaths: [],
     allFilePaths: [],
   };
+  let preProgressTime = Date.now();
 
   const handler = async (srcDir, destDir = '') => {
     const filelist = await fs.promises.readdir(srcDir, { encoding: 'utf8' });
+    const now = Date.now();
 
-    if (onProgress && stats.totalFile && 0 === stats.totalFile % 500) {
+    if (onProgress && now - preProgressTime > 500) {
+      preProgressTime = now;
       onProgress(Object.assign({}, stats));
     }
 
@@ -199,7 +202,7 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
         srcStat: toFSStatInfo(fstat),
       };
 
-      if ((await fs.promises.stat(srcPath)).isDirectory()) {
+      if (fstat.isDirectory()) {
         stats.totalDir++;
         stats.allDirPaths.push(info);
         return handler(srcPath, destPath);
@@ -209,7 +212,7 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
       }
     });
 
-    await Promise.all(list);
+    return Promise.all(list);
   };
 
   await handler(_srcDir, _destDir);

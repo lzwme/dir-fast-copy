@@ -2,7 +2,7 @@
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
  * @LastEditors: lzw
- * @LastEditTime: 2022-06-29 18:32:54
+ * @LastEditTime: 2022-06-30 09:25:09
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -184,7 +184,7 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
         if (CONFIG.cpDuringStats && isDone && s.totalFile > CONFIG.mutiThreadMinFiles) {
           allFileListTodo = s.allFilePaths.slice(sendedToCpFileNum);
 
-          if (allFileListTodo.length > 10000) {
+          if (allFileListTodo.length > CONFIG.mutiThreadMinFiles) {
             isDone = false;
             sendedToCpFileNum = s.totalFile;
             mutiThreadCopy(allFileListTodo, {
@@ -208,8 +208,8 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
       Object.assign(STATS, stats);
       allFileListTodo = STATS.allFilePaths.slice(sendedToCpFileNum);
 
-      let tip = `[${showCostTime(startTime)}] 目录预处理完成，发现文件总数：${color.yellow(STATS.totalFile)}，目录总数：${color.yellow(
-        STATS.totalDir
+      let tip = `[${showCostTime(startTime)}] 目录预处理完成，发现目录总数：${color.yellow(STATS.totalDir)}，文件总数：${color.yellowBright(
+        STATS.totalFile
       )}`;
       if (CONFIG.cpDuringStats && isDone) {
         tip += `。已处理了${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件`;

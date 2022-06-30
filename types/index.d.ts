@@ -32,8 +32,8 @@ export interface FsStatInfo {
   isFile?: boolean;
   nlink?: number;
   isDirectory: boolean;
-  atimeMs: number;
-  mtimeMs: number;
+  atime: Date;
+  mtime: Date;
   size: number;
 };
 
