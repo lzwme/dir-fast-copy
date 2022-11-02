@@ -121,7 +121,6 @@ export function checkFile(srcFilePath: string, destFilePath: string, srcStat: Fs
   return srcStat;
 }
 
-
 /** 复制一个文件 */
 export async function cpFileSync(srcPath, destPath, srcStat: FsStatInfo) {
   try {
@@ -136,12 +135,14 @@ export async function cpFileSync(srcPath, destPath, srcStat: FsStatInfo) {
 export async function cpFile(srcPath, destPath, srcStat: FsStatInfo) {
   try {
     await new Promise((rs, reject) => {
-      fs.createReadStream(srcPath).pipe(fs.createWriteStream(destPath)).on('close', () => {
-        fs.utimes(destPath, srcStat.atime, srcStat.mtime, (err) => {
-          if (err) reject(err);
-          else rs(true)
+      fs.createReadStream(srcPath)
+        .pipe(fs.createWriteStream(destPath))
+        .on('close', () => {
+          fs.utimes(destPath, srcStat.atime, srcStat.mtime, (err) => {
+            if (err) reject(err);
+            else rs(true);
+          });
         });
-      });
     });
   } catch (err) {
     console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);

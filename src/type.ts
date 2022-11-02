@@ -35,7 +35,7 @@ export interface FsStatInfo {
   atime: Date;
   mtime: Date;
   size: number;
-};
+}
 
 export interface DfcStats {
   /** 全部的文件路径 [src, dest] */

@@ -46,7 +46,8 @@
     "cov:check": "nyc report && nyc check-coverage --lines 40 --functions 30 --branches 30",
     "version": "standard-version",
     "reset": "git clean -dfx && git reset --hard && pnpm install",
-    "clean": "trash dist test",
+    "clean": "trash dist cjs esm",
+    "preinstall": "husky install",
     "prepare-release": "run-s test cov:check version"
   },
   "engines": {
@@ -98,7 +99,7 @@
   },
   "lint-staged": {
     "*.ts": [
-      "prettier --parser typescript --write"
+      "prettier --parser typescript --write --cache"
     ],
     "*.json": [
       "prettier --parser json --write"

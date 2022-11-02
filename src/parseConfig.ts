@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { color, log } from 'console-log-colors';
-import  globToRegExp from 'glob-to-regexp';
+import globToRegExp from 'glob-to-regexp';
 import CONFIG from './config';
 import { help, logPrint } from './utils';
 

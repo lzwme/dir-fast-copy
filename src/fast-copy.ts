@@ -11,7 +11,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { color, log } from 'console-log-colors';
 import CONFIG from './config';
-import { cpFileSync, cpDir, fileCopy, showCostTime, dirCopyRecursive, logInline, logPrint, getAllFiles, formatFileSize, toFSStatInfo } from './utils';
+import {
+  cpFileSync,
+  cpDir,
+  fileCopy,
+  showCostTime,
+  dirCopyRecursive,
+  logInline,
+  logPrint,
+  getAllFiles,
+  formatFileSize,
+  toFSStatInfo,
+} from './utils';
 import { DfcConfig, DfcStats } from './type';
 import { parseConfig } from './parseConfig';
 
