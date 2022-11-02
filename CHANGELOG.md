@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.1](https://github.com/lzwme/dir-fast-copy/compare/v1.4.0...v1.4.1) (2022-11-02)
+
+
+### Bug Fixes
+
+* 更正 cpFile 等待逻辑 ([a9742a9](https://github.com/lzwme/dir-fast-copy/commit/a9742a9070b88e7e2b1b27b03fca9abe986ad840))
+* 修复 exclude 参数不生效的问题 ([a0b49af](https://github.com/lzwme/dir-fast-copy/commit/a0b49afec063e82a5587c98c7481cd5a357b233b))
+
 ## 1.4.0 (2022-06-22)
 
 

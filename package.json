@@ -1,6 +1,6 @@
 {
   "name": "@lzwme/dir-fast-copy",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "nodejs 实现的文件夹快速复制工具。适用于对存在海量小文件的目录进行选择性复制的需求场景。",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
