@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { color, log } from 'console-log-colors';
-const globToRegExp = require('glob-to-regexp');
+import  globToRegExp from 'glob-to-regexp';
 import CONFIG from './config';
 import { help, logPrint } from './utils';
 
@@ -43,8 +43,10 @@ export function parseConfig(cfg: typeof CONFIG) {
   if (!CONFIG.exclude) CONFIG.exclude = [];
   CONFIG.exclude.forEach((val, i) => {
     if (val instanceof RegExp) return;
-    CONFIG.exclude[i] = globToRegExp(val, { extended: true });
+    CONFIG.exclude[i] = globToRegExp(val, { extended: true, flags: 'gi' });
   });
+
+  // console.debug('CONFIG.exclude', CONFIG.exclude);
 
   return CONFIG;
 }

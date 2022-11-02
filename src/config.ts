@@ -1,5 +1,5 @@
 import { cpus } from 'os';
-import { DfcConfig } from '../types';
+import { DfcConfig } from './type';
 
 const config: DfcConfig = {
   slient: false,

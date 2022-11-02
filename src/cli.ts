@@ -3,6 +3,7 @@
 import commander from 'commander';
 import { fastCopy } from './fast-copy';
 import { dirRm } from './dir-rm';
+import type { DfcConfig } from './type';
 
 const pkg = require('../package.json');
 const program = commander.program;
@@ -23,19 +24,19 @@ const cp = program
   .option('--progress-interval', 'onProgress 进度回调(进度日志更新)的最小间隔时间(ms)，不低于 100ms。默认值 2000', '2000')
   .option('--cp-during-stats', '多线程模式下，在收集文件信息过程中即开始文件复制（适用于文件数量多信息收集时间长的场景）', false)
   .action((...args) => {
-    const config = Object.assign(
-      {
-        src: args[0],
-        dest: args[1],
-        iscmd: true,
-        onEnd: () => process.exit(0),
-      },
-      cp.opts()
-    );
+    const config: DfcConfig = {
+      src: args[0],
+      dest: args[1],
+      iscmd: true,
+      onEnd: () => process.exit(0),
+      ...cp.opts(),
+    };
 
     Object.keys(config).forEach((key) => {
       if (null == config[key]) delete config[key];
     });
+
+    // console.debug('config', config);
 
     fastCopy(config);
   });

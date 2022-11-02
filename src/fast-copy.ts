@@ -2,7 +2,7 @@
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
  * @LastEditors: lzw
- * @LastEditTime: 2022-06-30 09:25:09
+ * @LastEditTime: 2022-11-02 15:07:26
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -12,7 +12,7 @@ import * as path from 'path';
 import { color, log } from 'console-log-colors';
 import CONFIG from './config';
 import { cpFileSync, cpDir, fileCopy, showCostTime, dirCopyRecursive, logInline, logPrint, getAllFiles, formatFileSize, toFSStatInfo } from './utils';
-import { DfcConfig, DfcStats } from '../types';
+import { DfcConfig, DfcStats } from './type';
 import { parseConfig } from './parseConfig';
 
 /** 简单处理单文件的复制 */

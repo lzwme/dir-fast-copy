@@ -29,6 +29,7 @@
     }
   ],
   "scripts": {
+    "dev": "tsc -w",
     "build": "run-s clean && run-p build:*",
     "build:dist": "tsc -p tsconfig.json",
     "fix": "run-s fix:*",

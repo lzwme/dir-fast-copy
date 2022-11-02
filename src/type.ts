@@ -58,7 +58,7 @@ export interface DfcStats {
   totalDirNew?: number;
 }
 
-interface PlainObject {
+export interface PlainObject {
   [key: string]: any;
 }
 

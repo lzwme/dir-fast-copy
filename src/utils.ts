@@ -3,8 +3,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import CONFIG from './config';
 import { log, color } from 'console-log-colors';
-import { DfcStats, FsStatInfo } from '../types';
-import { DfcConfig } from '../types/index';
+import type { DfcConfig, DfcStats, FsStatInfo } from './type';
 const pkg = require('../package.json');
 
 export function help() {
@@ -88,14 +87,27 @@ export function showCostTime(startTime: number) {
   return color.cyan(formatTime(Date.now() - startTime));
 }
 
+export function isExclude(srcFilePath: string) {
+  for (const d of CONFIG.exclude) {
+    if (d instanceof RegExp) {
+      if (srcFilePath.match(d)) return true;
+    } else {
+      if (srcFilePath.includes(d)) return false;
+    }
+  }
+
+  return false;
+}
+
 /**
  * 文件校验
  * @returns
  * 返回 null 表示文件或目录被忽略
  * 返回 false 表示文件或目录不执行处理
  */
-export function checkFile(_srcFilePath, destFilePath, srcStat: FsStatInfo, config = CONFIG) {
-  if (config.exclude.some((d) => d.test(_srcFilePath))) return null;
+export function checkFile(srcFilePath: string, destFilePath: string, srcStat: FsStatInfo, config = CONFIG) {
+  // console.debug('checkFile:', srcFilePath, destFilePath);
+  if (isExclude(srcFilePath)) return false;
 
   if (srcStat.isDirectory) return 'dir';
 
@@ -178,7 +190,9 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
   };
   let preProgressTime = Date.now();
 
-  const handler = async (srcDir, destDir = '') => {
+  const handler = async (srcDir: string, destDir = '') => {
+    if (isExclude(srcDir)) return false;
+
     const filelist = await fs.promises.readdir(srcDir, { encoding: 'utf8' });
     const now = Date.now();
 
@@ -193,6 +207,8 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
       const srcPath = path.resolve(srcDir, filename);
       const destPath = destDir ? path.resolve(destDir, filename) : '';
       if (!fs.existsSync(srcPath)) return;
+
+      if (isExclude(srcPath)) return;
 
       const fstat = await fs.promises.stat(srcPath);
 

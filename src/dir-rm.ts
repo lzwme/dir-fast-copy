@@ -3,7 +3,7 @@ import * as path from 'path';
 import { color } from 'console-log-colors';
 import CONFIG from './config';
 import { showCostTime, logPrint, readSyncByRl } from './utils';
-import { DfcDirRmOptions } from '../types';
+import type { DfcDirRmOptions } from './type';
 
 async function doDirRm(src: string, option: DfcDirRmOptions) {
   if (!src) return console.log('请指定要删除的文件或目录路径');
