@@ -1,7 +1,7 @@
 import { cpus } from 'os';
-import { DfcConfig } from './type';
+import { type DfcConfig } from './type';
 
-const config: DfcConfig = {
+export const CONFIG: DfcConfig = {
   slient: false,
   iscmd: false,
   src: '',
@@ -17,4 +17,4 @@ const config: DfcConfig = {
   onProgress: null,
 };
 
-export default config;
+export default CONFIG;

@@ -22,6 +22,8 @@ export interface DfcConfig {
   cpDuringStats?: boolean;
   /** onProgress 进度回调(进度日志更新)的最小间隔时间(ms)，不低于 100ms。默认值 2000 */
   progressInterval?: number;
+  /** 复制成功后，是否删除源文件。即为 mv 模式 */
+  deleteSrc?: boolean;
   /** 结束时回调方法 */
   onEnd?: (stats: DfcStats) => void;
   /** 发出进度消息时的回调方法 */

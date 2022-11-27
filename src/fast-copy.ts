@@ -10,9 +10,9 @@ import * as workerThreads from 'worker_threads';
 import * as fs from 'fs';
 import * as path from 'path';
 import { color, log } from 'console-log-colors';
-import CONFIG from './config';
+import { CONFIG } from './config';
 import {
-  cpFileSync,
+  cpFile,
   cpDir,
   fileCopy,
   showCostTime,
@@ -27,14 +27,14 @@ import { DfcConfig, DfcStats } from './type';
 import { parseConfig } from './parseConfig';
 
 /** 简单处理单文件的复制 */
-function cpSingleFile(srcFilePath, destFilePath) {
+async function cpSingleFile(srcFilePath, destFilePath) {
   const startTime = Date.now();
   const srcStat = fs.statSync(destFilePath);
   logPrint('单文件复制');
   if (fs.existsSync(destFilePath) && srcStat.isFile()) {
     logPrint('目的文件已存在，将被源文件替换');
   }
-  cpFileSync(srcFilePath, destFilePath, toFSStatInfo(srcStat));
+  await cpFile(srcFilePath, destFilePath, toFSStatInfo(srcStat));
   logPrint(`复制完成，耗时 ${color.green((Date.now() - startTime) / 1000)} 秒`);
   return true;
 }
@@ -112,7 +112,7 @@ function mutiThreadCopy(
   }
 }
 
-function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
+async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
   const STATS: DfcStats = {
     allFilePaths: [],
     allDirPaths: [],
@@ -137,17 +137,17 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
     );
   };
 
+  const cfg = parseConfig(_config);
+  if (!cfg) return STATS;
+
+  // 单文件复制
+  if (fs.statSync(cfg.src).isFile()) {
+    await cpSingleFile(cfg.src, cfg.dest);
+    STATS.totalFileNew = STATS.totalFile = 1;
+    return STATS;
+  }
+
   return new Promise(async (resolve) => {
-    const cfg = parseConfig(_config);
-    if (!cfg) return resolve(false);
-
-    // 单文件复制
-    if (fs.statSync(cfg.src).isFile()) {
-      cpSingleFile(cfg.src, cfg.dest);
-      STATS.totalFileNew = STATS.totalFile = 1;
-      return resolve(STATS);
-    }
-
     if (!fs.existsSync(cfg.dest)) {
       cpDir(cfg.src, cfg.dest);
       STATS.totalDirNew++;
@@ -155,6 +155,12 @@ function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
 
     /** 执行完成后回调方法 */
     const onEnd = () => {
+      if (CONFIG.deleteSrc === true) {
+        STATS.allDirPaths.forEach((dirInfo) => {
+          if (fs.readdirSync(dirInfo.src).length === 0) fs.rmdirSync(dirInfo.src);
+        });
+      }
+
       logInline(
         `\n处理完成，总耗时 ${color.green((Date.now() - startTime) / 1000)} 秒！共处理了 ${color.yellow(STATS.totalFile)} 个文件${
           STATS.totalFileSize ? `(${color.yellowBright(formatFileSize(STATS.totalFileSize))})` : ''

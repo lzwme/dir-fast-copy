@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { color, log } from 'console-log-colors';
 import globToRegExp from 'glob-to-regexp';
 import CONFIG from './config';
-import { help, logPrint } from './utils';
+import { logPrint } from './utils';
 
 /** 处理入参信息 */
 export function parseConfig(cfg: typeof CONFIG) {
@@ -12,13 +12,11 @@ export function parseConfig(cfg: typeof CONFIG) {
 
   if (!cfg.src) {
     log.red('未指定要复制的源目录！');
-    help();
     return;
   }
 
   if (!cfg.dest) {
     log.red('未指定要复制至的目的目录！');
-    help();
     return;
   }
 
@@ -47,6 +45,7 @@ export function parseConfig(cfg: typeof CONFIG) {
   });
 
   // console.debug('CONFIG.exclude', CONFIG.exclude);
+  if (CONFIG.debug) console.debug('[config][parsed]', CONFIG);
 
   return CONFIG;
 }
