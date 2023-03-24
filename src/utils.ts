@@ -196,7 +196,7 @@ export function logInline(msg) {
 }
 
 /** 获取所有需处理的文件列表（后续分割为多线程处理） */
-export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: typeof CONFIG['onProgress']) {
+export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: (typeof CONFIG)['onProgress']) {
   const stats: DfcStats = {
     totalFile: 0,
     totalDir: 0,
@@ -220,13 +220,10 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
       if (!filename) return;
 
       const srcPath = resolve(srcDir, filename);
+      if (isExclude(srcPath) || !existsSync(srcPath)) return;
+
       const destPath = destDir ? resolve(destDir, filename) : '';
-      if (!existsSync(srcPath)) return;
-
-      if (isExclude(srcPath)) return;
-
       const fstat = await promises.stat(srcPath);
-
       const info: DfcStats['allDirPaths'][0] = {
         src: srcPath,
         dest: destPath,
@@ -244,6 +241,7 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: t
     });
 
     return Promise.all(list);
+    return true;
   };
 
   await handler(_srcDir, _destDir);

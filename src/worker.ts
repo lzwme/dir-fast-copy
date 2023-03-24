@@ -6,15 +6,13 @@
  * @Description: 子线程 worker
  */
 import { parentPort, workerData, isMainThread } from 'worker_threads';
-import { color } from 'console-log-colors';
-import { fileCopy, logPrint } from './utils';
+import { fileCopy } from './utils';
 import CONFIG from './config';
 
 /** 启动子线程 */
 function startChild() {
   if (workerData.config) Object.assign(CONFIG, workerData.config);
 
-  logPrint(`子线程 ${workerData.idx} 已启动，收到待处理文件数为：`, color.yellow(workerData.filePathList.length));
   // startTime = workerData.startTime;
 
   fileCopy(workerData.filePathList, {

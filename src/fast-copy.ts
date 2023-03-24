@@ -81,8 +81,8 @@ function mutiThreadCopy(
 
     if (data.type === 'done') {
       threadRuningNum--;
+      worker.terminate();
       if (!threadRuningNum) {
-        worker.terminate();
         if (opts.onEnd) process.nextTick(() => opts.onEnd(stats));
       }
     }
@@ -98,16 +98,16 @@ function mutiThreadCopy(
 
   for (let idx = 0; idx < CONFIG.threads; idx++) {
     const workerFile = path.resolve(__dirname, './worker.js');
-    const worker = new workerThreads.Worker(workerFile, {
-      workerData: {
-        idx,
-        sepCount,
-        config: childCfg,
-        startTime: opts.startTime || Date.now(),
-        filePathList: allFilePathList.slice(idx * sepCount, (idx + 1) * sepCount),
-      },
-    });
+    const workerData = {
+      idx,
+      sepCount,
+      config: childCfg,
+      startTime: opts.startTime || Date.now(),
+      filePathList: allFilePathList.slice(idx * sepCount, (idx + 1) * sepCount),
+    };
+    const worker = new workerThreads.Worker(workerFile, { workerData });
 
+    logPrint(`启动子线程 ${idx}，待处理文件数为：`, color.yellow(workerData.filePathList.length));
     worker.on('message', workerOnData.bind(globalThis, worker));
   }
 }
@@ -157,7 +157,7 @@ async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
     const onEnd = () => {
       if (CONFIG.deleteSrc === true) {
         STATS.allDirPaths.forEach((dirInfo) => {
-          if (fs.readdirSync(dirInfo.src).length === 0) fs.rmdirSync(dirInfo.src);
+          if (fs.existsSync(dirInfo.src) && fs.readdirSync(dirInfo.src).length === 0) fs.rmdirSync(dirInfo.src);
         });
       }
 
@@ -195,7 +195,7 @@ async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
       /** 子线程是否已处理完毕 */
       let isDone = true;
       const stats = await getAllFiles(cfg.src, cfg.dest, (s) => {
-        logInline(`[${showCostTime(startTime)}] 已发现目录数：${s.totalDir} 个，包含文件 ${s.totalFile} 个`);
+        logInline(`[${showCostTime(startTime)}] 已发现目录数：${color.cyan(s.totalDir)} 个，包含文件 ${color.cyanBright(s.totalFile)} 个`);
 
         // TODO: 可以在获取到文件后立即执行多线程复制
         if (CONFIG.cpDuringStats && isDone && s.totalFile > CONFIG.mutiThreadMinFiles) {
