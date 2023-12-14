@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/lzwme/dir-fast-copy/compare/v1.4.1...v1.5.0) (2023-12-14)
+
+
+### Features
+
+* 新增 deleteSrc 参数，可选择复制成功后是否删除源文件（即mv模式） ([0531e9a](https://github.com/lzwme/dir-fast-copy/commit/0531e9a7eb25658ff5fb174cde7b39b93c0fcf37))
+
 ### [1.4.1](https://github.com/lzwme/dir-fast-copy/compare/v1.4.0...v1.4.1) (2022-11-02)
 
 
