@@ -26,7 +26,7 @@ export function logPrint(...args) {
 /** 执行文件复制（获取到全部文件后） */
 export async function fileCopy(
   filePathList: DfcStats['allFilePaths'],
-  opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {}
+  opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {},
 ) {
   const stats: DfcStats = {
     totalFile: filePathList.length,

@@ -10,7 +10,7 @@ export interface DfcConfig {
   iscmd?: boolean;
   /** 多线程模式的线程数。小于2表示不启动多线程模式 */
   threads?: number;
-  /** 启用多线程模式的最小文件数，文件总数低于该值则使用单线程模式(最小值 1000，默认为 3000) */
+  /** 启用多线程模式的最小文件数，文件总数低于该值则使用单线程模式(最小值 100，默认为 3000) */
   mutiThreadMinFiles?: number;
   /** 文件过滤规则，支持正则和普通的 glob 格式规则 */
   exclude?: any[]; // [/\.pyc$/],

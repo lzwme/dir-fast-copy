@@ -1,8 +1,8 @@
 /*
  * @Author: lzw
  * @Date: 2020-09-18 09:52:53
- * @LastEditors: lzw
- * @LastEditTime: 2022-11-02 15:07:26
+ * @LastEditors: renxia
+ * @LastEditTime: 2023-12-14 14:58:57
  * @Description: 对指定文件夹内的文件进行复制，只复制指定日期之后创建的文件
  */
 
@@ -29,7 +29,7 @@ import { parseConfig } from './parseConfig';
 /** 简单处理单文件的复制 */
 async function cpSingleFile(srcFilePath, destFilePath) {
   const startTime = Date.now();
-  const srcStat = fs.statSync(destFilePath);
+  const srcStat = fs.statSync(srcFilePath);
   logPrint('单文件复制');
   if (fs.existsSync(destFilePath) && srcStat.isFile()) {
     logPrint('目的文件已存在，将被源文件替换');
@@ -41,7 +41,12 @@ async function cpSingleFile(srcFilePath, destFilePath) {
 /** 多线程复制模式 */
 function mutiThreadCopy(
   allFilePathList: any[][],
-  opts: { startTime?: number; onStart?: (threadNum: number) => void; onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {}
+  opts: {
+    startTime?: number;
+    onStart?: (threadNum: number) => void;
+    onProgress?: DfcConfig['onProgress'];
+    onEnd?: DfcConfig['onEnd'];
+  } = {},
 ) {
   const stats: DfcStats = {
     totalFile: allFilePathList.length,
@@ -132,8 +137,8 @@ async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
     const percent = showPercent ? `[${((100 * s.totalFileHandler) / s.totalFile).toFixed(2)}%]` : '';
     logInline(
       `[${showCostTime(startTime)}] ${percent} 已处理了${color.yellow(s.totalFileHandler)} 个文件，其中复制了 ${color.magenta(
-        s.totalFileNew
-      )} 个文件${s.totalFileNewSize ? `(${color.magentaBright(formatFileSize(s.totalFileNewSize))})` : ''}`
+        s.totalFileNew,
+      )} 个文件${s.totalFileNewSize ? `(${color.magentaBright(formatFileSize(s.totalFileNewSize))})` : ''}`,
     );
   };
 
@@ -166,7 +171,7 @@ async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
           STATS.totalFileSize ? `(${color.yellowBright(formatFileSize(STATS.totalFileSize))})` : ''
         }，包含于 ${color.cyan(STATS.totalDir)} 个文件夹中。其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件${
           STATS.totalFileNewSize ? `(${color.magentaBright(formatFileSize(STATS.totalFileNewSize))})` : ''
-        }\n`
+        }\n`,
       );
       // 执行了 ${color.cyan(STATS.totalDirNew)} 次文件夹创建命令 // 由于多线程模式下用了递归创建参数，该值不准确
 
@@ -226,10 +231,10 @@ async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
       allFileListTodo = STATS.allFilePaths.slice(sendedToCpFileNum);
 
       let tip = `[${showCostTime(startTime)}] 目录预处理完成，发现目录总数：${color.yellow(STATS.totalDir)}，文件总数：${color.yellowBright(
-        STATS.totalFile
+        STATS.totalFile,
       )}`;
       if (CONFIG.cpDuringStats && isDone) {
-        tip += `。已处理了${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件`;
+        tip += `。已处理了 ${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件`;
       }
       logInline(tip);
 
