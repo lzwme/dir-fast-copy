@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/lzwme/dir-fast-copy/compare/v1.5.0...v1.6.0) (2025-03-17)
+
+
+### Features
+
+* 新增 include 参数，支持指定文件包含规则 ([eeee0fa](https://github.com/lzwme/dir-fast-copy/commit/eeee0faa3799424426709352dcbb0a66570acf56))
+
 ## [1.5.0](https://github.com/lzwme/dir-fast-copy/compare/v1.4.1...v1.5.0) (2023-12-14)
 
 
