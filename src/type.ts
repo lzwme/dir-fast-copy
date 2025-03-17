@@ -14,6 +14,8 @@ export interface DfcConfig {
   mutiThreadMinFiles?: number;
   /** 文件过滤规则，支持正则和普通的 glob 格式规则 */
   exclude?: any[]; // [/\.pyc$/],
+  /** 文件包含规则，支持正则和普通的 glob 格式规则 */
+  include?: any[];
   /** 文件最小日期，低于该日期的忽略 */
   minDateTime?: number;
   /** 文件<名称与大小均相同>已存在是否跳过。为 false 则覆盖它 */

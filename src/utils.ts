@@ -98,8 +98,17 @@ export function isExclude(srcFilePath: string) {
     if (d instanceof RegExp) {
       if (srcFilePath.match(d)) return true;
     } else {
-      if (srcFilePath.includes(d)) return false;
+      if (srcFilePath.includes(d)) return true;
     }
+  }
+
+  if (CONFIG.include.length > 0) {
+    return !CONFIG.include.some((d) => {
+      if (d instanceof RegExp) {
+        if (srcFilePath.match(d)) return true;
+      } else if (srcFilePath.includes(d)) return true;
+      return false;
+    });
   }
 
   return false;

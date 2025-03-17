@@ -43,6 +43,11 @@ export function parseConfig(cfg: typeof CONFIG) {
     if (val instanceof RegExp) return;
     CONFIG.exclude[i] = globToRegExp(val, { extended: true, flags: 'gi' });
   });
+  if (!CONFIG.include) CONFIG.include = [];
+  CONFIG.include.forEach((val, i) => {
+    if (val instanceof RegExp) return;
+    CONFIG.include[i] = globToRegExp(val, { extended: true, flags: 'gi' });
+  });
 
   // console.debug('CONFIG.exclude', CONFIG.exclude);
   if (CONFIG.debug) console.debug('[config][parsed]', CONFIG);
