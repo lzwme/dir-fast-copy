@@ -93,7 +93,7 @@ export function showCostTime(startTime: number) {
   return color.cyan(formatTime(Date.now() - startTime));
 }
 
-export function isExclude(srcFilePath: string) {
+export function isExclude(srcFilePath: string, srcStat?: FsStatInfo) {
   for (const d of CONFIG.exclude) {
     if (d instanceof RegExp) {
       if (srcFilePath.match(d)) return true;
@@ -103,12 +103,10 @@ export function isExclude(srcFilePath: string) {
   }
 
   if (CONFIG.include.length > 0) {
-    return !CONFIG.include.some((d) => {
-      if (d instanceof RegExp) {
-        if (srcFilePath.match(d)) return true;
-      } else if (srcFilePath.includes(d)) return true;
-      return false;
-    });
+    if (!srcStat) srcStat = toFSStatInfo(statSync(srcFilePath));
+    if (srcStat.isFile) {
+      return !CONFIG.include.some((d) => (d instanceof RegExp ? srcFilePath.match(d) : srcFilePath.includes(d)));
+    }
   }
 
   return false;
@@ -122,7 +120,7 @@ export function isExclude(srcFilePath: string) {
  */
 export async function checkFile(srcFilePath: string, destFilePath: string, srcStat: FsStatInfo, config = CONFIG) {
   // console.debug('checkFile:', srcFilePath, destFilePath);
-  if (isExclude(srcFilePath)) return false;
+  if (isExclude(srcFilePath, srcStat)) return false;
 
   if (srcStat.isDirectory) return 'dir';
 
@@ -229,17 +227,17 @@ export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: (
       if (!filename) return;
 
       const srcPath = resolve(srcDir, filename);
-      if (isExclude(srcPath) || !existsSync(srcPath)) return;
+      const fstat = toFSStatInfo(statSync(srcPath));
+      if (isExclude(srcPath, fstat) || !existsSync(srcPath)) return;
 
       const destPath = destDir ? resolve(destDir, filename) : '';
-      const fstat = await promises.stat(srcPath);
       const info: DfcStats['allDirPaths'][0] = {
         src: srcPath,
         dest: destPath,
-        srcStat: toFSStatInfo(fstat),
+        srcStat: fstat,
       };
 
-      if (fstat.isDirectory()) {
+      if (fstat.isDirectory) {
         stats.totalDir++;
         stats.allDirPaths.push(info);
         return handler(srcPath, destPath);
