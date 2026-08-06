@@ -26,6 +26,30 @@ import {
 import { DfcConfig, DfcStats } from './type';
 import { parseConfig } from './parseConfig';
 
+/** 从指定目录开始，递归删除所有空的子目录（含自身） */
+function removeEmptyDirs(dirPath: string) {
+  if (!fs.existsSync(dirPath)) return;
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      removeEmptyDirs(path.join(dirPath, entry.name));
+    }
+  }
+
+  // 子目录处理完后再判断当前目录是否为空
+  try {
+    if (fs.readdirSync(dirPath).length === 0) fs.rmdirSync(dirPath);
+  } catch {
+    // 目录非空或删除失败时忽略
+  }
+}
+
 /** 简单处理单文件的复制 */
 async function cpSingleFile(srcFilePath, destFilePath) {
   const startTime = Date.now();
@@ -161,9 +185,13 @@ async function startMain(_config: typeof CONFIG): Promise<boolean | DfcStats> {
     /** 执行完成后回调方法 */
     const onEnd = () => {
       if (CONFIG.deleteSrc === true) {
-        STATS.allDirPaths.forEach((dirInfo) => {
+        // 从深到浅逆序删除空目录：父目录在子目录之后判断，才能正确清理"子目录清空后变空的父目录"
+        for (let i = STATS.allDirPaths.length - 1; i >= 0; i--) {
+          const dirInfo = STATS.allDirPaths[i];
           if (fs.existsSync(dirInfo.src) && fs.readdirSync(dirInfo.src).length === 0) fs.rmdirSync(dirInfo.src);
-        });
+        }
+        // 兜底：从源根目录递归清理所有残留的空目录（兼容单线程模式未完整收集 allDirPaths 的场景）
+        removeEmptyDirs(cfg.src);
       }
 
       logInline(
