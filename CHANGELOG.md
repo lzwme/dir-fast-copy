@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.6.2](https://github.com/lzwme/dir-fast-copy/compare/v1.6.1...v1.6.2) (2026-08-07)
+
+
+### Features
+
+* 新增递归删除空目录功能，优化源目录清理逻辑 ([8d2c424](https://github.com/lzwme/dir-fast-copy/commit/8d2c424ca5acad05485e3c83cb3265b545557fbe))
+
 ### [1.6.1](https://github.com/lzwme/dir-fast-copy/compare/v1.6.0...v1.6.1) (2025-03-25)
 
 ## [1.6.0](https://github.com/lzwme/dir-fast-copy/compare/v1.5.0...v1.6.0) (2025-03-17)
