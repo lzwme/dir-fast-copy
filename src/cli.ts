@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import commander from 'commander';
-import { fastCopy } from './fast-copy';
 import { dirRm } from './dir-rm';
+import { fastCopy } from './fast-copy';
 import type { DfcConfig } from './type';
 
 const pkg = require('../package.json');
@@ -25,18 +25,20 @@ const cp = program
   .option('-I, --progress-interval', 'onProgress 进度回调(进度日志更新)的最小间隔时间(ms)，不低于 100ms。默认值 2000', '2000')
   .option('-c, --cp-during-stats', '多线程模式下，在收集文件信息过程中即开始文件复制（适用于文件数量多信息收集时间长的场景）', false)
   .option('-D, --delete-src', '是否删除原文件。即 mv 模式', false)
-  .action((...args) => {
+  .action((srcPath: string, destPath: string, ..._args: unknown[]) => {
     const config: DfcConfig = {
-      src: args[0],
-      dest: args[1],
+      src: srcPath,
+      dest: destPath,
       iscmd: true,
       onEnd: () => process.exit(0),
-      ...cp.opts(),
+      ...(cp.opts() as Partial<DfcConfig>),
     };
 
-    Object.keys(config).forEach((key) => {
-      if (null == config[key]) delete config[key];
-    });
+    // 移除 null/undefined 的属性
+    const configRecord = config as unknown as Record<string, unknown>;
+    for (const key of Object.keys(configRecord)) {
+      if (configRecord[key] == null) delete configRecord[key];
+    }
 
     if (config.debug) console.debug('[cli][config]', config);
 

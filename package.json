@@ -32,18 +32,20 @@
     "dev": "tsc -w",
     "build": "run-s clean && run-p build:*",
     "build:dist": "tsc -p tsconfig.json",
-    "fix": "run-s fix:*",
-    "fix:prettier": "prettier \"src/**/*.ts\" --write",
+    "lint": "npm run fix && npm run check:tsc",
+    "check:tsc": "tsc --noEmit",
+    "check": "biome check src/",
+    "fix": "pnpm check --fix",
     "test": "run-s build test:*",
-    "test:lint": "prettier \"src/**/*[^.spec].ts\" --list-different",
-    "test:unit": "nyc --silent ava",
+    "test:lint": "biome check src/",
+    "test:unit": "vitest run",
     "watch": "run-s clean build:dist && run-p \"build:dist -- -w\" \"test:unit -- --watch\"",
     "watch:src": "run-s clean build:dist && run-p \"build:dist -- -w\"",
-    "cov": "run-s build test:unit cov:html && open-cli coverage/index.html",
-    "cov:html": "nyc report --reporter=html",
-    "cov:send": "nyc report --reporter=lcov && codecov",
-    "cov:summary": "nyc report --reporter=text-summary",
-    "cov:check": "nyc report && nyc check-coverage --lines 40 --functions 30 --branches 30",
+    "cov": "vitest run --coverage && open-cli coverage/index.html",
+    "cov:html": "vitest run --coverage --coverage.reporter=html",
+    "cov:send": "vitest run --coverage --coverage.reporter=lcov && codecov",
+    "cov:summary": "vitest run --coverage --coverage.reporter=text-summary",
+    "cov:check": "vitest run --coverage",
     "version": "standard-version",
     "reset": "git clean -dfx && git reset --hard && pnpm install",
     "clean": "trash dist cjs esm",
@@ -51,59 +53,37 @@
     "prepare-release": "run-s test cov:check version"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.com"
   },
   "devDependencies": {
-    "@istanbuljs/nyc-config-typescript": "^1.0.2",
-    "@types/node": "^22",
-    "ava": "^6.2.0",
+    "@biomejs/biome": "^2.5.7",
+    "@types/node": "^26",
+    "@vitest/coverage-v8": "^4.1.10",
     "cz-conventional-changelog": "^3.3.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.0",
+    "lint-staged": "^17.3.0",
     "npm-run-all": "^4.1.5",
-    "nyc": "^17.1.0",
-    "open-cli": "^8.0.0",
-    "prettier": "^3.5.3",
+    "open-cli": "^9.0.0",
     "standard-version": "^9.5.0",
-    "trash-cli": "^6.0.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "trash-cli": "^7.2.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
-    "commander": "^13.1.0",
+    "commander": "^15.0.0",
     "console-log-colors": "^0.5.0",
     "glob-to-regexp": "^0.4.1"
   },
-  "ava": {
-    "failFast": true,
-    "files": [
-      "dist/**/*.spec.js"
-    ],
-    "watchMode": {
-      "ignoreChanges": [
-        "dist/**/*.js"
-      ]
-    }
-  },
-  "nyc": {
-    "extends": "@istanbuljs/nyc-config-typescript",
-    "exclude": [
-      "**/*.spec.js"
-    ]
-  },
-  "prettier": {
-    "singleQuote": true
-  },
   "lint-staged": {
-    "*.ts": [
-      "prettier --parser typescript --write --cache"
+    "*.{ts,tsx}": [
+      "npm run lint"
     ],
-    "*.json": [
-      "prettier --parser json --write"
+    "*.{json,md}": [
+      "biome format --write --no-errors-on-unmatched"
     ]
   }
 }

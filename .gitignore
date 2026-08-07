@@ -8,7 +8,6 @@ src/**.js
 .idea/*
 
 coverage
-.nyc_output
 *.log
 package-lock.json
 yarn.lock

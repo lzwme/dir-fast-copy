@@ -13,9 +13,9 @@ export interface DfcConfig {
   /** 启用多线程模式的最小文件数，文件总数低于该值则使用单线程模式(最小值 100，默认为 3000) */
   mutiThreadMinFiles?: number;
   /** 文件过滤规则，支持正则和普通的 glob 格式规则 */
-  exclude?: any[]; // [/\.pyc$/],
+  exclude?: (string | RegExp)[];
   /** 文件包含规则，支持正则和普通的 glob 格式规则 */
-  include?: any[];
+  include?: (string | RegExp)[];
   /** 文件最小日期，低于该日期的忽略 */
   minDateTime?: number;
   /** 文件<名称与大小均相同>已存在是否跳过。为 false 则覆盖它 */
@@ -27,9 +27,9 @@ export interface DfcConfig {
   /** 复制成功后，是否删除源文件。即为 mv 模式 */
   deleteSrc?: boolean;
   /** 结束时回调方法 */
-  onEnd?: (stats: DfcStats) => void;
+  onEnd?: ((stats: DfcStats) => void) | null;
   /** 发出进度消息时的回调方法 */
-  onProgress?: (stats: DfcStats) => void;
+  onProgress?: ((stats: DfcStats) => void) | null;
 }
 
 export interface FsStatInfo {
@@ -41,33 +41,37 @@ export interface FsStatInfo {
   size: number;
 }
 
-export interface DfcStats {
-  /** 全部的文件路径 [src, dest] */
-  allFilePaths?: { src: string; dest: string; srcStat: FsStatInfo }[];
-  /** 全部的目录路径 src?: dest */
-  allDirPaths?: { src: string; dest: string; srcStat: FsStatInfo }[];
-  /** 文件总数 */
-  totalFile?: number;
-  /** 所有文件的大小之和 */
-  totalFileSize?: number;
-  /** 已处理的文件总数 */
-  totalFileHandler?: number;
-  /** 已复制的文件总数 */
-  totalFileNew?: number;
-  /** 已复制的文件大小之和 */
-  totalFileNewSize?: number;
-  /** 文件夹总数 */
-  totalDir?: number;
-  /** 复制过程中新建的文件夹数 */
-  totalDirNew?: number;
+export interface DfcFileItem {
+  src: string;
+  dest: string;
+  srcStat: FsStatInfo;
 }
 
-export interface PlainObject {
-  [key: string]: any;
+export interface DfcStats {
+  /** 开始时间 */
+  startTime?: number;
+  /** 全部的文件路径 [src, dest] */
+  allFilePaths: DfcFileItem[];
+  /** 全部的目录路径 src?: dest */
+  allDirPaths: DfcFileItem[];
+  /** 文件总数 */
+  totalFile: number;
+  /** 所有文件的大小之和 */
+  totalFileSize: number;
+  /** 已处理的文件总数 */
+  totalFileHandler: number;
+  /** 已复制的文件总数 */
+  totalFileNew: number;
+  /** 已复制的文件大小之和 */
+  totalFileNewSize: number;
+  /** 文件夹总数 */
+  totalDir: number;
+  /** 复制过程中新建的文件夹数 */
+  totalDirNew: number;
 }
 
 export interface DfcDirRmOptions {
   src: string[];
   force?: boolean;
-  slient?: DfcConfig['slient'];
+  slient?: boolean;
 }

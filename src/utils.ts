@@ -1,177 +1,182 @@
-import {
-  promises,
-  existsSync,
-  rmdirSync,
-  statSync,
-  readdirSync,
-  createReadStream,
-  createWriteStream,
-  utimes,
-  mkdirSync,
-  utimesSync,
-  type Stats,
-} from 'fs';
+import { color } from 'console-log-colors';
+import { type Dir, existsSync, mkdirSync, promises, readdirSync, rmdirSync, statSync, utimes, utimesSync } from 'fs';
 import { dirname, resolve } from 'path';
 import * as readline from 'readline';
-import { CONFIG } from './config';
-import { color } from 'console-log-colors';
-import type { DfcConfig, DfcStats, FsStatInfo } from './type';
+import type { DfcConfig, DfcFileItem, DfcStats, FsStatInfo } from './type';
 
-/** 日志打印 */
-export function logPrint(...args) {
-  if (CONFIG.slient) return;
+// ============================================================
+// 日志工具函数
+// ============================================================
+
+export function logPrint(config: DfcConfig | null, ...args: unknown[]) {
+  if (config?.slient) return;
   console.log(...args);
 }
 
-/** 执行文件复制（获取到全部文件后） */
-export async function fileCopy(
-  filePathList: DfcStats['allFilePaths'],
-  opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {},
-) {
-  const stats: DfcStats = {
-    totalFile: filePathList.length,
-    totalFileSize: 0,
-    totalFileHandler: 0,
-    totalFileNew: 0,
-    totalFileNewSize: 0,
-    totalDirNew: 0,
-  };
-
-  if (!filePathList) return stats;
-  const progressTipNum = filePathList.length > 10000 ? 1000 : 100;
-  const queueSize = 8;
-  let cpFileQueue: Promise<void>[] = [];
-
-  for (const item of filePathList) {
-    const { src: srcPath, dest: destPath, srcStat } = item;
-    const check = await checkFile(srcPath, destPath, srcStat);
-
-    stats.totalFileHandler++;
-
-    if (stats.totalFileHandler > 1 && 0 === stats.totalFileHandler % progressTipNum) {
-      if (opts.onProgress) opts.onProgress(stats);
-    }
-
-    if (check === 'dir') continue;
-    stats.totalFileSize += srcStat.size;
-    if (check === false) continue;
-
-    try {
-      // 创建目的文件的目录路径
-      const destFileDir = dirname(destPath);
-      if (!existsSync(destFileDir)) {
-        cpDir(dirname(srcPath), destFileDir, srcStat);
-        stats.totalDirNew++;
-      }
-
-      if (cpFileQueue.length >= queueSize) {
-        await Promise.allSettled(cpFileQueue);
-        cpFileQueue = [];
-      }
-
-      cpFileQueue.push(cpFile(srcPath, destPath, srcStat));
-      stats.totalFileNew++;
-      stats.totalFileNewSize += srcStat.size;
-    } catch (err) {
-      console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
-    }
-  }
-
-  await Promise.allSettled(cpFileQueue);
-
-  if (opts.onEnd) opts.onEnd(stats);
-  return stats;
+export function logInline(config: DfcConfig | null, msg: string) {
+  if (config?.slient) return;
+  readline.clearLine(process.stdout, 0);
+  readline.cursorTo(process.stdout, 0);
+  process.stdout.write(msg, 'utf-8');
 }
 
-export function formatTime(timeMs) {
-  // return timeMs / 1000 + 's';
+// ============================================================
+// 时间/格式化工具
+// ============================================================
+
+export function formatTime(timeMs: number) {
   return new Date(new Date('1970-01-01T00:00:00').getTime() + timeMs).toTimeString().split(' ')[0];
 }
 
-/** 显示从指定的时间到此刻花费的时间 */
 export function showCostTime(startTime: number) {
   return color.cyan(formatTime(Date.now() - startTime));
 }
 
-export function isExclude(srcFilePath: string, srcStat?: FsStatInfo) {
-  for (const d of CONFIG.exclude) {
+export function formatFileSize(size: number) {
+  if (size > 1 << 30) return `${(size / (1 << 30)).toFixed(2)}G`;
+  if (size > 1 << 20) return `${(size / (1 << 20)).toFixed(2)}M`;
+  if (size > 1 << 10) return `${(size / (1 << 10)).toFixed(2)}KB`;
+  return `${size}B`;
+}
+
+// ============================================================
+// FS 工具函数
+// ============================================================
+
+export function toFSStatInfo(fstat: {
+  isFile(): boolean;
+  isDirectory(): boolean;
+  nlink: number;
+  atime: Date;
+  mtime: Date;
+  size: number;
+}): FsStatInfo {
+  return {
+    isFile: fstat.isFile(),
+    isDirectory: fstat.isDirectory(),
+    nlink: fstat.nlink,
+    atime: fstat.atime,
+    mtime: fstat.mtime,
+    size: fstat.size,
+  };
+}
+
+// ============================================================
+// 文件/目录过滤
+// ============================================================
+
+export function isExclude(config: DfcConfig, srcFilePath: string, srcStat?: FsStatInfo): boolean {
+  const excludes = config.exclude || [];
+  for (const d of excludes) {
     if (d instanceof RegExp) {
-      if (srcFilePath.match(d)) return true;
+      if (d.test(srcFilePath)) return true;
     } else {
-      if (srcFilePath.includes(d)) return true;
+      if (srcFilePath.includes(String(d))) return true;
     }
   }
 
-  if (CONFIG.include.length > 0) {
+  const includes = config.include || [];
+  if (includes.length > 0) {
     if (!srcStat) srcStat = toFSStatInfo(statSync(srcFilePath));
     if (srcStat.isFile) {
-      return !CONFIG.include.some((d) => (d instanceof RegExp ? srcFilePath.match(d) : srcFilePath.includes(d)));
+      return !includes.some((d: string | RegExp) => (d instanceof RegExp ? d.test(srcFilePath) : srcFilePath.includes(String(d))));
     }
   }
 
   return false;
 }
 
-/**
- * 文件校验
- * @returns
- * 返回 null 表示文件或目录被忽略
- * 返回 false 表示文件或目录不执行处理
- */
-export async function checkFile(srcFilePath: string, destFilePath: string, srcStat: FsStatInfo, config = CONFIG) {
-  // console.debug('checkFile:', srcFilePath, destFilePath);
-  if (isExclude(srcFilePath, srcStat)) return false;
+export async function checkFile(
+  srcFilePath: string,
+  destFilePath: string,
+  srcStat: FsStatInfo,
+  config: DfcConfig,
+): Promise<FsStatInfo | 'dir' | undefined> {
+  if (isExclude(config, srcFilePath, srcStat)) return undefined;
 
   if (srcStat.isDirectory) return 'dir';
 
-  if (srcStat.mtime.getTime() < config.minDateTime) return false;
+  if (srcStat.mtime.getTime() < (config.minDateTime || 0)) return undefined;
 
-  // 相同大小的文件已存在
   if (config.skipSameFile) {
     if (existsSync(destFilePath) && statSync(destFilePath).size === srcStat.size) {
-      if (CONFIG.deleteSrc) await promises.unlink(srcFilePath);
-      return false;
+      if (config.deleteSrc) await promises.unlink(srcFilePath);
+      return undefined;
     }
   }
 
   return srcStat;
 }
 
-/** 复制一个文件 */
-export async function cpFile(srcPath, destPath, srcStat: FsStatInfo) {
-  try {
-    await promises.copyFile(srcPath, destPath);
-    // writeFileSync(destPath, readFileSync(srcPath));
-    promises.utimes(destPath, srcStat.atime, srcStat.mtime);
-    if (CONFIG.deleteSrc === true) await promises.unlink(srcPath);
-  } catch (err) {
-    console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
+// ============================================================
+// 文件和目录复制（带重试机制）
+// ============================================================
+
+const MAX_RETRY_COUNT = 3;
+const RETRY_DELAY_MS = 100;
+
+/** 带重试的文件复制 */
+export async function cpFile(
+  config: DfcConfig,
+  srcPath: string,
+  destPath: string,
+  srcStat: FsStatInfo,
+  retryCount = MAX_RETRY_COUNT,
+): Promise<void> {
+  for (let attempt = 1; attempt <= retryCount; attempt++) {
+    try {
+      await promises.copyFile(srcPath, destPath);
+      await promises.utimes(destPath, srcStat.atime, srcStat.mtime);
+      if (config.deleteSrc === true) await promises.unlink(srcPath);
+      return; // 成功，直接返回
+    } catch (err) {
+      if (attempt < retryCount) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+        continue;
+      }
+      console.log(`文件复制失败(重试${retryCount}次后):\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
+    }
   }
 }
 
-/** 复制一个文件(stream 方式异步) */
-export async function cpFilebyStream(srcPath, destPath, srcStat: FsStatInfo) {
-  try {
-    await new Promise((rs, reject) => {
-      createReadStream(srcPath)
-        .pipe(createWriteStream(destPath))
-        .on('close', () => {
-          utimes(destPath, srcStat.atime, srcStat.mtime, (err) => {
-            if (err) reject(err);
-            else {
-              if (CONFIG.deleteSrc === true) promises.unlink(srcPath);
-              rs(true);
-            }
-          });
-        });
-    });
-  } catch (err) {
-    console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
+/** 复制一个文件(stream 方式异步，带重试) */
+export async function cpFilebyStream(
+  config: DfcConfig,
+  srcPath: string,
+  destPath: string,
+  srcStat: FsStatInfo,
+  retryCount = MAX_RETRY_COUNT,
+) {
+  for (let attempt = 1; attempt <= retryCount; attempt++) {
+    try {
+      const { createReadStream, createWriteStream } = await import('fs');
+      await new Promise<void>((rs, reject) => {
+        createReadStream(srcPath)
+          .pipe(createWriteStream(destPath))
+          .on('close', () => {
+            utimes(destPath, srcStat.atime, srcStat.mtime, (err) => {
+              if (err) reject(err);
+              else {
+                if (config.deleteSrc === true) promises.unlink(srcPath);
+                rs();
+              }
+            });
+          })
+          .on('error', reject);
+      });
+      return; // 成功
+    } catch (err) {
+      if (attempt < retryCount) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+        continue;
+      }
+      console.log(`文件复制失败(重试${retryCount}次后):\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
+    }
   }
 }
 
 /** 复制一个目录(不作任何检查以保证速度) */
-export function cpDir(srcDir, destDir, srcStat?: FsStatInfo) {
+export function cpDir(srcDir: string, destDir: string, srcStat?: FsStatInfo) {
   try {
     if (!srcStat) srcStat = toFSStatInfo(statSync(srcDir));
     mkdirSync(destDir, { recursive: true });
@@ -181,89 +186,186 @@ export function cpDir(srcDir, destDir, srcStat?: FsStatInfo) {
   }
 }
 
-export function toFSStatInfo(fstat: Stats) {
-  const info: FsStatInfo = {
-    isFile: fstat.isFile(),
-    isDirectory: fstat.isDirectory(),
-    nlink: fstat.nlink,
-    atime: fstat.atime,
-    mtime: fstat.mtime,
-    size: fstat.size,
+// ============================================================
+// 批量文件复制（单线程，带重试）
+// ============================================================
+
+export async function fileCopy(
+  config: DfcConfig,
+  filePathList: DfcStats['allFilePaths'],
+  opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {},
+) {
+  const stats: DfcStats = {
+    allFilePaths: filePathList ?? [],
+    allDirPaths: [],
+    totalFile: filePathList.length,
+    totalFileSize: 0,
+    totalFileHandler: 0,
+    totalFileNew: 0,
+    totalFileNewSize: 0,
+    totalDir: 0,
+    totalDirNew: 0,
   };
-  return info;
+
+  if (!filePathList) return stats;
+  const progressTipNum = filePathList.length > 10000 ? 1000 : 100;
+  const queueSize = 8;
+  let cpFileQueue: Promise<void>[] = [];
+  const createdDirs = new Set<string>();
+
+  for (const item of filePathList) {
+    const { src: srcPath, dest: destPath, srcStat } = item;
+    const check = await checkFile(srcPath, destPath, srcStat, config);
+
+    stats.totalFileHandler++;
+
+    if (stats.totalFileHandler > 1 && stats.totalFileHandler % progressTipNum === 0) {
+      opts.onProgress?.(stats);
+    }
+
+    if (check === 'dir' || !check) continue;
+    stats.totalFileSize += srcStat.size;
+
+    try {
+      const destFileDir = dirname(destPath);
+      if (!createdDirs.has(destFileDir)) {
+        if (!existsSync(destFileDir)) {
+          cpDir(dirname(srcPath), destFileDir, srcStat);
+          stats.totalDirNew++;
+        }
+        createdDirs.add(destFileDir);
+      }
+
+      if (cpFileQueue.length >= queueSize) {
+        await Promise.allSettled(cpFileQueue);
+        cpFileQueue = [];
+      }
+
+      cpFileQueue.push(cpFile(config, srcPath, destPath, srcStat));
+      stats.totalFileNew++;
+      stats.totalFileNewSize += srcStat.size;
+    } catch (err) {
+      console.log(`文件复制失败:\nsrc: ${srcPath}\ndest: ${destPath}\n`, err);
+    }
+  }
+
+  await Promise.allSettled(cpFileQueue);
+
+  opts.onEnd?.(stats);
+  return stats;
 }
 
-/** 在当前行打印日志信息(主要用于显示进度信息) */
-export function logInline(msg) {
-  if (CONFIG.slient) return;
-  // console.log(msg);
-  readline.clearLine(process.stdout, 0);
-  readline.cursorTo(process.stdout, 0);
-  process.stdout.write(msg, 'utf-8');
-}
+// ============================================================
+// 流式目录遍历（文件发现）- 使用 fs.opendir 异步迭代器
+// ============================================================
 
-/** 获取所有需处理的文件列表（后续分割为多线程处理） */
-export async function getAllFiles(_srcDir: string, _destDir = '', onProgress?: (typeof CONFIG)['onProgress']) {
+/**
+ * 流式获取所有需处理的文件列表
+ * 使用 fs.promises.opendir 的异步迭代器，内存更友好
+ */
+export async function getAllFiles(config: DfcConfig, _srcDir: string, _destDir = '', onProgress?: DfcConfig['onProgress']) {
   const stats: DfcStats = {
     totalFile: 0,
     totalDir: 0,
     allDirPaths: [],
     allFilePaths: [],
+    totalFileSize: 0,
+    totalFileHandler: 0,
+    totalFileNew: 0,
+    totalFileNewSize: 0,
+    totalDirNew: 0,
   };
   let preProgressTime = Date.now();
 
-  const handler = async (srcDir: string, destDir = '') => {
-    if (isExclude(srcDir)) return false;
+  /**
+   * 使用 opendir 流式遍历目录
+   * 相比 readdir + map(Promise.all)，这种方式不会一次性加载所有条目到内存
+   */
+  const walkDir = async (srcDir: string, destDir = ''): Promise<void> => {
+    if (isExclude(config, srcDir)) return;
 
-    const filelist = await promises.readdir(srcDir, { encoding: 'utf8' });
-    const now = Date.now();
-
-    if (onProgress && now - preProgressTime > 500) {
-      preProgressTime = now;
-      onProgress(Object.assign({}, stats));
+    let dirHandle: Dir | undefined;
+    try {
+      dirHandle = await promises.opendir(srcDir);
+    } catch {
+      return; // 无法打开目录（权限等），跳过
     }
 
-    const list = filelist.map(async (filename) => {
-      if (!filename) return;
+    try {
+      for await (const entry of dirHandle) {
+        const srcPath = resolve(srcDir, entry.name);
+        const destPath = destDir ? resolve(destDir, entry.name) : '';
 
-      const srcPath = resolve(srcDir, filename);
-      const fstat = toFSStatInfo(statSync(srcPath));
-      if (isExclude(srcPath, fstat) || !existsSync(srcPath)) return;
+        if (entry.isDirectory()) {
+          const info: DfcFileItem = {
+            src: srcPath,
+            dest: destPath,
+            srcStat: {
+              isDirectory: true,
+              isFile: false,
+              atime: new Date(0),
+              mtime: new Date(0),
+              size: 0,
+            },
+          };
 
-      const destPath = destDir ? resolve(destDir, filename) : '';
-      const info: DfcStats['allDirPaths'][0] = {
-        src: srcPath,
-        dest: destPath,
-        srcStat: fstat,
-      };
+          if (isExclude(config, srcPath, info.srcStat)) continue;
 
-      if (fstat.isDirectory) {
-        stats.totalDir++;
-        stats.allDirPaths.push(info);
-        return handler(srcPath, destPath);
-      } else {
-        stats.totalFile++;
-        stats.allFilePaths.push(info);
+          stats.totalDir++;
+          stats.allDirPaths.push(info);
+          await walkDir(srcPath, destPath);
+        } else if (entry.isFile()) {
+          let fstat: FsStatInfo | undefined;
+          try {
+            fstat = toFSStatInfo(statSync(srcPath));
+          } catch {
+            continue;
+          }
+
+          if (isExclude(config, srcPath, fstat)) continue;
+
+          stats.totalFile++;
+          stats.allFilePaths.push({
+            src: srcPath,
+            dest: destPath,
+            srcStat: fstat,
+          });
+        }
+
+        // 进度通知（限流）
+        const now = Date.now();
+        if (onProgress && now - preProgressTime > 500) {
+          preProgressTime = now;
+          onProgress({ ...stats });
+        }
       }
-    });
-
-    return Promise.all(list);
-    return true;
+    } finally {
+      try {
+        await dirHandle?.close();
+      } catch {
+        // ignore
+      }
+    }
   };
 
-  await handler(_srcDir, _destDir);
+  await walkDir(_srcDir, _destDir);
   return stats;
 }
 
-/** 单线程模式，执行目录复制（递归） */
-export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats) => void) {
+// ============================================================
+// 单线程递归复制
+// ============================================================
+
+export async function dirCopyRecursive(config: DfcConfig, src: string, dest: string, onProgress?: (stats: DfcStats) => void) {
   const stats: DfcStats = {
-    totalFile: 0, // 文件总数
+    allFilePaths: [],
+    allDirPaths: [],
+    totalFile: 0,
     totalFileSize: 0,
-    totalFileHandler: 0, // 已处理的文件数
-    totalFileNew: 0, // 复制了多少个文件
+    totalFileHandler: 0,
+    totalFileNew: 0,
     totalFileNewSize: 0,
-    totalDirNew: 0, // 创建了多少个目录
+    totalDirNew: 0,
     totalDir: 0,
   };
 
@@ -274,19 +376,17 @@ export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats)
     }
 
     const filelist = readdirSync(srcDir, { encoding: 'utf8' });
-    let srcPath = '';
-    let destPath = '';
 
     for (const filename of filelist) {
       if (!filename || filename === '..') continue;
 
-      onProgress && onProgress(stats);
-      srcPath = resolve(srcDir, filename);
-      destPath = resolve(destDir, filename);
+      onProgress?.(stats);
+      const srcPath = resolve(srcDir, filename);
+      const destPath = resolve(destDir, filename);
 
       const srcStat = statSync(srcPath);
       const statInfo = toFSStatInfo(srcStat);
-      const check = await checkFile(srcPath, destPath, statInfo);
+      const check = await checkFile(srcPath, destPath, statInfo, config);
 
       if (srcStat.isFile()) {
         stats.totalFileHandler++;
@@ -300,7 +400,6 @@ export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats)
 
       if (check === 'dir') {
         await handler(srcPath, destPath, statInfo);
-        // 移除空的文件夹
         if (!readdirSync(destPath).length) {
           rmdirSync(destPath);
           stats.totalDirNew--;
@@ -308,27 +407,29 @@ export function dirCopyRecursive(src: string, dest: string, onProgress?: (stats)
         continue;
       }
 
-      await cpFile(srcPath, destPath, statInfo);
+      await cpFile(config, srcPath, destPath, statInfo);
       stats.totalFileNew++;
       stats.totalFileNewSize += srcStat.size;
     }
 
-    // 移除空目录
     if (!readdirSync(srcDir).length) {
       await promises.rm(srcDir, { recursive: true, force: true });
     }
   };
 
-  handler(src, dest);
+  await handler(src, dest);
   stats.totalFile = stats.totalFileHandler;
   return stats;
 }
 
-/** 等待并获取用户输入内容 */
+// ============================================================
+// 交互式输入
+// ============================================================
+
 export function readSyncByRl(tips: string) {
   tips = tips || '> ';
 
-  return new Promise((resolve) => {
+  return new Promise<string>((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -339,11 +440,4 @@ export function readSyncByRl(tips: string) {
       rl.close();
     });
   });
-}
-
-export function formatFileSize(size: number) {
-  if (size > 1 << 30) return (size / (1 << 30)).toFixed(2) + 'G';
-  if (size > 1 << 20) return (size / (1 << 20)).toFixed(2) + 'M';
-  if (size > 1 << 10) return (size / (1 << 10)).toFixed(2) + 'KB';
-  return size + 'B';
 }

@@ -3,23 +3,20 @@
     "target": "esnext",
     "outDir": "./dist/",
     "rootDir": "src",
-    "moduleResolution": "node",
     "module": "commonjs",
     "declaration": true,
     "sourceMap": false,
     "inlineSourceMap": false,
-    "esModuleInterop": true,
     "resolveJsonModule": true,
+    "esModuleInterop": true,
 
-    // "strict": true,
-
-    /* Strict Type-Checking Options */
-    // "noImplicitAny": true,
-    // "strictNullChecks": true,
-    // "strictFunctionTypes": true,
-    // "strictPropertyInitialization": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
     "noImplicitThis": true,
-    // "alwaysStrict": true,
+    "alwaysStrict": true,
 
     /* Additional Checks */
     "noUnusedLocals": true,
@@ -34,12 +31,8 @@
     "pretty": true,
     "skipLibCheck": true,
 
-    /* Experimental Options */
-    // "experimentalDecorators": true,
-    // "emitDecoratorMetadata": true,
-
     "lib": ["esnext"],
-    "typeRoots": ["types", "node_modules/@types"]
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules/**"],

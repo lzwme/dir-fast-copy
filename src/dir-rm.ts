@@ -1,9 +1,8 @@
+import { color } from 'console-log-colors';
 import * as fs from 'fs';
 import * as path from 'path';
-import { color } from 'console-log-colors';
-import CONFIG from './config';
-import { showCostTime, logPrint, readSyncByRl } from './utils';
 import type { DfcDirRmOptions } from './type';
+import { logPrint, readSyncByRl, showCostTime } from './utils';
 
 async function doDirRm(src: string, option: DfcDirRmOptions) {
   if (!src) return console.log('请指定要删除的文件或目录路径');
@@ -11,7 +10,6 @@ async function doDirRm(src: string, option: DfcDirRmOptions) {
   if (!fs.existsSync(src)) return console.log('要删除的文件或目录路径不存在！', color.red(src));
   const srcTip = fs.statSync(src).isFile() ? '文件' : '目录';
 
-  if (option.slient) CONFIG.slient = true;
   if (!option.force) {
     const force = await readSyncByRl(`是否删除该${srcTip}(y/)？[${color.red(src)}] `);
     if ('y' !== String(force).trim().toLowerCase()) return;
@@ -19,9 +17,10 @@ async function doDirRm(src: string, option: DfcDirRmOptions) {
   const startTime = Date.now();
 
   if (typeof fs.rmSync === 'function') fs.rmSync(src, { recursive: true });
-  else fs.rmdirSync(src, { recursive: true });
+  else fs.rmdirSync(src);
 
-  logPrint(`$[${showCostTime(startTime)}] ${srcTip}已删除：`, color.green(src));
+  // dir-rm 场景中 slient 控制不来自全局 config，此处传 null
+  logPrint(null, `$[${showCostTime(startTime)}] ${srcTip}已删除：`, color.green(src));
   return true;
 }
 
