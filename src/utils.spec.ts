@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
 import { createDefaultConfig } from './config';
-import { formatFileSize, formatTime, toFSStatInfo } from './utils';
+import { formatFileSize, formatProgressPercent, formatTime, toFSStatInfo } from './utils';
 
 describe('createDefaultConfig', () => {
   it('每次调用应返回独立的新对象', () => {
@@ -36,6 +36,25 @@ describe('formatFileSize', () => {
 
   it('大于 1GB 应以 G 显示', () => {
     expect(formatFileSize(2 * 1024 * 1024 * 1024)).toContain('G');
+  });
+});
+
+describe('formatProgressPercent', () => {
+  it('正常场景应返回百分比文本', () => {
+    expect(formatProgressPercent(50, 200)).toBe('[25.00%]');
+  });
+
+  it('totalFile 为 0 时不应出现 Infinity', () => {
+    expect(formatProgressPercent(24000, 0)).toBe('');
+  });
+
+  it('totalFile 未定义/非有限数时应返回空字符串', () => {
+    expect(formatProgressPercent(100, Number.NaN)).toBe('');
+    expect(formatProgressPercent(100, Number.POSITIVE_INFINITY)).toBe('');
+  });
+
+  it('已处理数超过总数时也应正常格式化', () => {
+    expect(formatProgressPercent(120, 100)).toBe('[120.00%]');
   });
 });
 

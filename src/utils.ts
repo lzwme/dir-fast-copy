@@ -1,8 +1,8 @@
 import { color } from 'console-log-colors';
-import { type Dir, existsSync, mkdirSync, promises, readdirSync, rmdirSync, statSync, utimes, utimesSync } from 'fs';
+import { existsSync, mkdirSync, promises, readdirSync, rmdirSync, statSync, utimes, utimesSync } from 'fs';
 import { dirname, resolve } from 'path';
 import * as readline from 'readline';
-import type { DfcConfig, DfcFileItem, DfcStats, FsStatInfo } from './type';
+import type { DfcConfig, DfcStats, FsStatInfo } from './type';
 
 // ============================================================
 // 日志工具函数
@@ -18,6 +18,25 @@ export function logInline(config: DfcConfig | null, msg: string) {
   readline.clearLine(process.stdout, 0);
   readline.cursorTo(process.stdout, 0);
   process.stdout.write(msg, 'utf-8');
+}
+
+// ============================================================
+// 统计对象
+// ============================================================
+
+/** 创建空的统计对象 */
+export function createEmptyStats(): DfcStats {
+  return {
+    allFilePaths: [],
+    allDirPaths: [],
+    totalFile: 0,
+    totalFileSize: 0,
+    totalFileHandler: 0,
+    totalFileNew: 0,
+    totalFileNewSize: 0,
+    totalDir: 0,
+    totalDirNew: 0,
+  };
 }
 
 // ============================================================
@@ -39,6 +58,17 @@ export function formatFileSize(size: number) {
   return `${size}B`;
 }
 
+/**
+ * 计算进度百分比文本
+ * @param handled 已处理的文件数
+ * @param total 文件总数
+ * @returns 形如 `[12.34%]` 的文本；当 total 未确定(<=0)或非有限数时返回空字符串，避免出现 Infinity/NaN
+ */
+export function formatProgressPercent(handled: number, total: number) {
+  if (!Number.isFinite(total) || total <= 0) return '';
+  return `[${((100 * handled) / total).toFixed(2)}%]`;
+}
+
 // ============================================================
 // FS 工具函数
 // ============================================================
@@ -50,6 +80,8 @@ export function toFSStatInfo(fstat: {
   atime: Date;
   mtime: Date;
   size: number;
+  dev?: number;
+  ino?: number;
 }): FsStatInfo {
   return {
     isFile: fstat.isFile(),
@@ -58,6 +90,8 @@ export function toFSStatInfo(fstat: {
     atime: fstat.atime,
     mtime: fstat.mtime,
     size: fstat.size,
+    dev: fstat.dev,
+    ino: fstat.ino,
   };
 }
 
@@ -196,15 +230,9 @@ export async function fileCopy(
   opts: { onProgress?: DfcConfig['onProgress']; onEnd?: DfcConfig['onEnd'] } = {},
 ) {
   const stats: DfcStats = {
+    ...createEmptyStats(),
     allFilePaths: filePathList ?? [],
-    allDirPaths: [],
     totalFile: filePathList.length,
-    totalFileSize: 0,
-    totalFileHandler: 0,
-    totalFileNew: 0,
-    totalFileNewSize: 0,
-    totalDir: 0,
-    totalDirNew: 0,
   };
 
   if (!filePathList) return stats;
@@ -256,99 +284,103 @@ export async function fileCopy(
 }
 
 // ============================================================
-// 流式目录遍历（文件发现）- 使用 fs.opendir 异步迭代器
+// 目录遍历（文件发现）
 // ============================================================
 
+/** 同层并发的条目数上限：兼顾吞吐(充分利用 libuv 线程池)与内存(Promise 数量) */
+const MAX_CONCURRENT_ENTRIES = 256;
+
+/** 计算目录实体标识，用于符号链接环检测 */
+function getDirIdentity(fstat: FsStatInfo): string {
+  return `${fstat.dev ?? ''}:${fstat.ino ?? ''}`;
+}
+
 /**
- * 流式获取所有需处理的文件列表
- * 使用 fs.promises.opendir 的异步迭代器，内存更友好
+ * 获取所有需处理的文件列表
+ *
+ * 两个关键实现要点：
+ * 1. 同层并发（而不是逐个串行）：目录读取是异步 IO，同层并发可让 libuv 线程池并行工作。
+ *    实测在 7.5 万文件/6900 目录的规模下，串行遍历约 30s，同层并发约 5s。
+ * 2. 用 statSync 判断条目类型（而不是 Dirent.isDirectory()）：源目录内可能包含符号链接/
+ *    目录联接（Windows 下 pnpm 的 junction），Dirent 对链接返回的 isDirectory/isFile 均为
+ *    false，会整体跳过链接指向的内容而导致漏复制；statSync 会跟随链接，与单线程模式一致。
+ *
+ * 环检测：使用 stat 得到的 dev:ino 作为目录实体标识，沿递归链路比对。
+ * 相比 realpath 逐链接解析（实测额外耗时 10s+），它无需任何额外系统调用。
  */
 export async function getAllFiles(config: DfcConfig, _srcDir: string, _destDir = '', onProgress?: DfcConfig['onProgress']) {
-  const stats: DfcStats = {
-    totalFile: 0,
-    totalDir: 0,
-    allDirPaths: [],
-    allFilePaths: [],
-    totalFileSize: 0,
-    totalFileHandler: 0,
-    totalFileNew: 0,
-    totalFileNewSize: 0,
-    totalDirNew: 0,
-  };
+  const stats: DfcStats = createEmptyStats();
   let preProgressTime = Date.now();
 
-  /**
-   * 使用 opendir 流式遍历目录
-   * 相比 readdir + map(Promise.all)，这种方式不会一次性加载所有条目到内存
-   */
-  const walkDir = async (srcDir: string, destDir = ''): Promise<void> => {
-    if (isExclude(config, srcDir)) return;
-
-    let dirHandle: Dir | undefined;
-    try {
-      dirHandle = await promises.opendir(srcDir);
-    } catch {
-      return; // 无法打开目录（权限等），跳过
-    }
-
-    try {
-      for await (const entry of dirHandle) {
-        const srcPath = resolve(srcDir, entry.name);
-        const destPath = destDir ? resolve(destDir, entry.name) : '';
-
-        if (entry.isDirectory()) {
-          const info: DfcFileItem = {
-            src: srcPath,
-            dest: destPath,
-            srcStat: {
-              isDirectory: true,
-              isFile: false,
-              atime: new Date(0),
-              mtime: new Date(0),
-              size: 0,
-            },
-          };
-
-          if (isExclude(config, srcPath, info.srcStat)) continue;
-
-          stats.totalDir++;
-          stats.allDirPaths.push(info);
-          await walkDir(srcPath, destPath);
-        } else if (entry.isFile()) {
-          let fstat: FsStatInfo | undefined;
-          try {
-            fstat = toFSStatInfo(statSync(srcPath));
-          } catch {
-            continue;
-          }
-
-          if (isExclude(config, srcPath, fstat)) continue;
-
-          stats.totalFile++;
-          stats.allFilePaths.push({
-            src: srcPath,
-            dest: destPath,
-            srcStat: fstat,
-          });
-        }
-
-        // 进度通知（限流）
-        const now = Date.now();
-        if (onProgress && now - preProgressTime > 500) {
-          preProgressTime = now;
-          onProgress({ ...stats });
-        }
-      }
-    } finally {
-      try {
-        await dirHandle?.close();
-      } catch {
-        // ignore
-      }
+  /** 进度通知（限流），传入快照避免调用方看到遍历过程中的数组变化 */
+  const reportProgress = () => {
+    const now = Date.now();
+    if (onProgress && now - preProgressTime > 500) {
+      preProgressTime = now;
+      onProgress({
+        ...stats,
+        allFilePaths: stats.allFilePaths.slice(),
+        allDirPaths: stats.allDirPaths.slice(),
+      });
     }
   };
 
-  await walkDir(_srcDir, _destDir);
+  const walkDir = async (srcDir: string, destDir: string, identity: string, ancestors: Set<string>): Promise<void> => {
+    // 链接成环：当前目录的实体已出现在递归链路上，终止该分支
+    if (identity && ancestors.has(identity)) return;
+    if (isExclude(config, srcDir)) return;
+
+    let filelist: string[];
+    try {
+      filelist = await promises.readdir(srcDir, { encoding: 'utf8' });
+    } catch {
+      return; // 无法读取目录（权限等），跳过
+    }
+
+    const nextAncestors = identity ? new Set(ancestors).add(identity) : ancestors;
+
+    const handleEntry = async (filename: string) => {
+      if (!filename) return;
+
+      const srcPath = resolve(srcDir, filename);
+      let fstat: FsStatInfo;
+      try {
+        // 跟随符号链接/联接点，断链或无权访问时跳过
+        fstat = toFSStatInfo(statSync(srcPath));
+      } catch {
+        return;
+      }
+
+      if (isExclude(config, srcPath, fstat)) return;
+
+      const destPath = destDir ? resolve(destDir, filename) : '';
+
+      if (fstat.isDirectory) {
+        stats.totalDir++;
+        stats.allDirPaths.push({ src: srcPath, dest: destPath, srcStat: fstat });
+        await walkDir(srcPath, destPath, getDirIdentity(fstat), nextAncestors);
+      } else {
+        stats.totalFile++;
+        stats.allFilePaths.push({ src: srcPath, dest: destPath, srcStat: fstat });
+      }
+
+      reportProgress();
+    };
+
+    // 分批并发处理同层条目，避免超大目录瞬间创建大量 Promise
+    for (let i = 0; i < filelist.length; i += MAX_CONCURRENT_ENTRIES) {
+      await Promise.all(filelist.slice(i, i + MAX_CONCURRENT_ENTRIES).map(handleEntry));
+    }
+  };
+
+  let rootIdentity = '';
+  try {
+    rootIdentity = getDirIdentity(toFSStatInfo(statSync(_srcDir)));
+  } catch {
+    return stats; // 源目录不可访问
+  }
+
+  await walkDir(_srcDir, _destDir, rootIdentity, new Set());
   return stats;
 }
 
@@ -357,17 +389,7 @@ export async function getAllFiles(config: DfcConfig, _srcDir: string, _destDir =
 // ============================================================
 
 export async function dirCopyRecursive(config: DfcConfig, src: string, dest: string, onProgress?: (stats: DfcStats) => void) {
-  const stats: DfcStats = {
-    allFilePaths: [],
-    allDirPaths: [],
-    totalFile: 0,
-    totalFileSize: 0,
-    totalFileHandler: 0,
-    totalFileNew: 0,
-    totalFileNewSize: 0,
-    totalDirNew: 0,
-    totalDir: 0,
-  };
+  const stats: DfcStats = createEmptyStats();
 
   const handler = async (srcDir: string, destDir: string, srcDirStat?: FsStatInfo) => {
     if (!existsSync(destDir)) {

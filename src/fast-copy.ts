@@ -18,6 +18,7 @@ import {
   dirCopyRecursive,
   fileCopy,
   formatFileSize,
+  formatProgressPercent,
   getAllFiles,
   logInline,
   logPrint,
@@ -63,28 +64,29 @@ async function cpSingleFile(config: DfcConfig, srcFilePath: string, destFilePath
 }
 
 /**
- * 使用 WorkerPool 执行多线程复制
+ * 创建 Worker 池的懒加载器
+ * 多个批次复用同一个池，避免每个批次重复创建/销毁线程；
+ * 若最终走单线程分支，则不会创建任何线程
  */
-function mutiThreadCopyWithPool(
-  config: DfcConfig,
-  allFilePathList: DfcFileItem[],
-  opts: {
-    startTime?: number;
-    onProgress?: DfcConfig['onProgress'];
-    onEnd?: (stats: DfcStats) => void;
-  } = {},
-) {
-  const pool = new WorkerPool(config, {
-    startTime: opts.startTime,
-    onProgress: opts.onProgress ?? undefined,
-    onAllDone: (stats) => {
-      pool.dispose();
-      opts.onEnd?.(stats);
-    },
-  });
+function createLazyPool(config: DfcConfig) {
+  let pool: WorkerPool | null = null;
 
-  pool.init();
-  pool.submitTasks(allFilePathList);
+  return {
+    /** 提交一批文件进行复制 */
+    submit(filePathList: DfcFileItem[], onProgress?: DfcConfig['onProgress']): Promise<DfcStats> {
+      if (!pool) {
+        pool = new WorkerPool(config);
+        pool.init();
+        logPrint(config, color.cyan('已创建子线程池，线程数：'), color.green(pool.getTotalThreads()));
+      }
+      return pool.submitTasks(filePathList, { onProgress });
+    },
+    /** 释放线程池 */
+    dispose(): void {
+      pool?.dispose();
+      pool = null;
+    },
+  };
 }
 
 async function startMain(config: DfcConfig): Promise<boolean | DfcStats> {
@@ -100,10 +102,27 @@ async function startMain(config: DfcConfig): Promise<boolean | DfcStats> {
     totalDirNew: 0,
   };
   const startTime = Date.now();
+  /**
+   * 各批次复制结果的累计值。
+   * 不直接累加到 STATS，因为发现阶段结束时会用 Object.assign(STATS, 发现结果) 覆盖 STATS，导致统计丢失。
+   */
+  const copyTotals = {
+    totalDirNew: 0,
+    totalFileNew: 0,
+    totalFileSize: 0,
+    totalFileNewSize: 0,
+  };
+  /** 累加某个批次的复制结果 */
+  const mergeCopyStats = (s: DfcStats) => {
+    if (s.totalDirNew) copyTotals.totalDirNew += s.totalDirNew;
+    if (s.totalFileNew) copyTotals.totalFileNew += s.totalFileNew;
+    if (s.totalFileSize) copyTotals.totalFileSize += s.totalFileSize;
+    if (s.totalFileNewSize) copyTotals.totalFileNewSize += s.totalFileNewSize;
+  };
 
   const logProgress = (showPercent = true, s = STATS) => {
     if (config.slient) return;
-    const percent = showPercent ? `[${((100 * s.totalFileHandler) / s.totalFile).toFixed(2)}%]` : '';
+    const percent = showPercent ? formatProgressPercent(s.totalFileHandler, s.totalFile) : '';
     logInline(
       config,
       `[${showCostTime(startTime)}] ${percent} 已处理了${color.yellow(s.totalFileHandler)} 个文件，其中复制了 ${color.magenta(
@@ -122,10 +141,16 @@ async function startMain(config: DfcConfig): Promise<boolean | DfcStats> {
   return new Promise(async (resolve) => {
     if (!fs.existsSync(config.dest)) {
       cpDir(config.src, config.dest);
-      STATS.totalDirNew++;
+      copyTotals.totalDirNew++;
     }
 
     const onEnd = () => {
+      // 将各批次累计的复制结果写回 STATS 后再输出，保证统计准确
+      STATS.totalDirNew = copyTotals.totalDirNew;
+      STATS.totalFileNew = copyTotals.totalFileNew;
+      STATS.totalFileSize = copyTotals.totalFileSize;
+      STATS.totalFileNewSize = copyTotals.totalFileNewSize;
+
       if (config.deleteSrc === true) {
         for (let i = STATS.allDirPaths.length - 1; i >= 0; i--) {
           const dirInfo = STATS.allDirPaths[i];
@@ -157,72 +182,89 @@ async function startMain(config: DfcConfig): Promise<boolean | DfcStats> {
         logProgress(false);
       });
       Object.assign(STATS, stats);
+      mergeCopyStats(stats);
       onEnd();
     } else {
       logPrint(config, color.cyan('开始收集源目录内文件信息'));
+      /** 待复制的文件列表 */
       let allFileListTodo: DfcFileItem[] = [];
+      /** 已发送给子线程处理的文件数 */
       let sendedToCpFileNum = 0;
-      let isDone = true;
-      const stats = await getAllFiles(config, config.src, config.dest, (s: DfcStats) => {
+      /**
+       * 收集过程中启动的复制批次。
+       * 必须在收尾前等待其完成，否则进程退出(onEnd 中的 process.exit)会中断未完成的复制，导致文件丢失。
+       */
+      let pendingBatch: Promise<void> | null = null;
+
+      /** 线程池按需创建，全部批次共用 */
+      const pool = createLazyPool(config);
+
+      /** 启动一个复制批次，返回其完成 Promise */
+      const runBatch = (list: DfcFileItem[]) =>
+        pool
+          .submit(list)
+          .then(mergeCopyStats)
+          .then(() => {
+            logPrint(config, color.gray('\n  首批子线程处理完成\n'));
+          });
+
+      const discovered = await getAllFiles(config, config.src, config.dest, (s: DfcStats) => {
         logInline(
           config,
           `[${showCostTime(startTime)}] 已发现目录数：${color.cyan(s.totalDir)} 个，包含文件 ${color.cyanBright(s.totalFile)} 个`,
         );
 
-        if (config.cpDuringStats && isDone && s.totalFile > (config.mutiThreadMinFiles || 3000)) {
-          allFileListTodo = s.allFilePaths.slice(sendedToCpFileNum);
+        // 已有批次在执行中则跳过，待其完成后由后续进度回调再次触发
+        if (!config.cpDuringStats || pendingBatch) return;
 
-          if (allFileListTodo.length > (config.mutiThreadMinFiles || 3000)) {
-            isDone = false;
-            sendedToCpFileNum = s.totalFile;
-            mutiThreadCopyWithPool(config, allFileListTodo, {
-              startTime,
-              onEnd: (s) => {
-                for (const key of ['totalDirNew', 'totalFileNew', 'totalFileSize', 'totalFileNewSize'] as const) {
-                  if (s[key]) STATS[key] += s[key];
-                }
-                logPrint(config, color.gray('\n  首批子线程处理完成\n'));
-                isDone = true;
-              },
-            });
-          }
-        }
+        const minFiles = config.mutiThreadMinFiles || 3000;
+        if (s.totalFile <= minFiles) return;
+
+        const todo = s.allFilePaths.slice(sendedToCpFileNum);
+        if (todo.length <= minFiles) return;
+
+        sendedToCpFileNum = s.totalFile;
+        logPrint(config, color.gray(`\n  数据收集过程中启动线程复制，本次处理文件数：${todo.length}\n`));
+        pendingBatch = runBatch(todo).finally(() => {
+          pendingBatch = null;
+        });
       });
-      Object.assign(STATS, stats);
+      Object.assign(STATS, discovered);
       allFileListTodo = STATS.allFilePaths.slice(sendedToCpFileNum);
 
       let tip = `[${showCostTime(startTime)}] 目录预处理完成，发现目录总数：${color.yellow(STATS.totalDir)}，文件总数：${color.yellowBright(
         STATS.totalFile,
       )}`;
-      if (config.cpDuringStats && isDone) {
-        tip += `。已处理了 ${color.yellow(STATS.totalFileHandler)} 个文件，其中复制了 ${color.magenta(STATS.totalFileNew)} 个文件`;
+      if (config.cpDuringStats && !pendingBatch) {
+        tip += `。已处理了 ${color.yellow(copyTotals.totalFileNew)} 个文件`;
       }
       logInline(config, tip);
 
       const onProgress = (s: DfcStats) => {
         logProgress(true, s);
-        config.onProgress?.(STATS);
+        config.onProgress?.({
+          ...STATS,
+          totalFileHandler: s.totalFileHandler,
+          totalFileNew: s.totalFileNew,
+          totalFileNewSize: s.totalFileNewSize,
+          totalFileSize: s.totalFileSize,
+          totalDirNew: s.totalDirNew,
+        });
       };
-      const onEndCallback = (s: DfcStats) => {
-        for (const key of ['totalDirNew', 'totalFileNew', 'totalFileSize', 'totalFileNewSize'] as const) {
-          if (s[key]) STATS[key] += s[key];
-        }
-        onEnd();
-      };
-
       if ((config.threads || 1) < 2 || STATS.totalFile < (config.mutiThreadMinFiles || 3000)) {
         logPrint(config, color.yellow('\n\n单线程执行'));
-        await fileCopy(config, STATS.allFilePaths, {
-          onProgress,
-          onEnd: onEndCallback,
-        });
+        // 等待在飞批次完成后再收尾，避免与其并发写入相同的目标文件
+        if (pendingBatch) await pendingBatch;
+        mergeCopyStats(await fileCopy(config, STATS.allFilePaths, { onProgress }));
       } else {
-        mutiThreadCopyWithPool(config, allFileListTodo, {
-          startTime,
-          onProgress,
-          onEnd: onEndCallback,
-        });
+        // 等待在飞批次完成后再提交最后一批，避免两批并发写入相同的目标文件
+        if (pendingBatch) await pendingBatch;
+        logPrint(config, color.cyan(`\n\n开始多线程处理，本次处理文件数：${allFileListTodo.length}`));
+        mergeCopyStats(await pool.submit(allFileListTodo, onProgress));
       }
+
+      pool.dispose();
+      onEnd();
     }
   });
 }

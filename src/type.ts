@@ -39,6 +39,10 @@ export interface FsStatInfo {
   atime: Date;
   mtime: Date;
   size: number;
+  /** 所在设备标识。与 ino 组合可唯一标识目录实体，用于符号链接环检测 */
+  dev?: number;
+  /** 文件索引(inode)。符号链接经 stat 解析后与目标实体一致 */
+  ino?: number;
 }
 
 export interface DfcFileItem {

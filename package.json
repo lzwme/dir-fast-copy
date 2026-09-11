@@ -32,7 +32,7 @@
     "dev": "tsc -w",
     "build": "run-s clean && run-p build:*",
     "build:dist": "tsc -p tsconfig.json",
-    "lint": "npm run fix && npm run check:tsc",
+    "lint": "npm run check:tsc && npm run fix",
     "check:tsc": "tsc --noEmit",
     "check": "biome check src/",
     "fix": "pnpm check --fix",
@@ -48,7 +48,7 @@
     "cov:check": "vitest run --coverage",
     "version": "standard-version",
     "reset": "git clean -dfx && git reset --hard && pnpm install",
-    "clean": "trash dist cjs esm",
+    "clean": "trash dist esm",
     "preinstall": "husky install",
     "prepare-release": "run-s test cov:check version"
   },
@@ -60,18 +60,18 @@
     "registry": "https://registry.npmjs.com"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7",
+    "@biomejs/biome": "^2.5.13",
     "@types/node": "^26",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^5.0.0",
     "cz-conventional-changelog": "^3.3.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
+    "lint-staged": "^17.5.1",
     "npm-run-all": "^4.1.5",
     "open-cli": "^9.0.0",
     "standard-version": "^9.5.0",
     "trash-cli": "^7.2.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.0"
   },
   "dependencies": {
     "commander": "^15.0.0",
